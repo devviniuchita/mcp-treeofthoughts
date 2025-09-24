@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+langchain-google-genai
+pydantic>=2.0
+httpx
+python-dotenv
+numpy
+scikit-learn
+langchain
+langgraph
+faiss-cpu
+Instructor
+

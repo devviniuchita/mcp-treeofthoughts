@@ -1,0 +1,20 @@
+{
+  "strategy": "balanced",
+  "branching_factor": 3,
+  "max_depth": 2,
+  "beam_width": 5,
+  "propose_temp": 0.7,
+  "value_temp": 0.2,
+  "use_value_model": false,
+  "parallelism": 4,
+  "per_node_token_estimate": 150,
+  "stop_conditions": {
+    "max_nodes": 200,
+    "max_time_seconds": 30
+  },
+  "evaluation_weights": {
+    "progress": 0.4,
+    "promise": 0.3,
+    "confidence": 0.3
+  }
+}
