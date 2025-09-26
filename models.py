@@ -1,25 +1,39 @@
-from pydantic import BaseModel, Field, validator
-from typing import List, Optional, Any, Dict, TYPE_CHECKING
-from contextlib import contextmanager
-import uuid
-import time
 import asyncio
 import threading
+import time
+import uuid
+
+from contextlib import contextmanager
 from enum import Enum
+from typing import TYPE_CHECKING
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
+
+from pydantic import BaseModel
+from pydantic import Field
+from pydantic import validator
+
 
 # Evita importações circulares usando TYPE_CHECKING
 if TYPE_CHECKING:
     from semantic_cache import SemanticCache
 
+
 class ValidationLevel(Enum):
     """Níveis de validação disponíveis"""
+
     NONE = "none"
     BASIC = "basic"
     STRICT = "strict"
 
+
 class CacheRequiredError(Exception):
     """Exceção levantada quando semantic cache é necessário mas não inicializado"""
+
     pass
+
 
 class RunConfig(BaseModel):
     strategy: str = 'beam_search'  # Corrigido: removido campo duplicado
@@ -31,13 +45,18 @@ class RunConfig(BaseModel):
     use_value_model: bool = False
     parallelism: int = 4
     per_node_token_estimate: int = 150
-    stop_conditions: Dict[str, Any] = Field(default_factory=lambda: {"max_nodes":200, "max_time_seconds":30})
+    stop_conditions: Dict[str, Any] = Field(
+        default_factory=lambda: {"max_nodes": 200, "max_time_seconds": 30}
+    )
     embedding_model: str = "gemini-embedding-001"
-    embedding_dim: int = 3072 # Default for gemini-embedding-001
-    evaluation_weights: Dict[str, float] = Field(default_factory=lambda: {"progress": 0.4, "promise": 0.3, "confidence": 0.3})
+    embedding_dim: int = 3072  # Default for gemini-embedding-001
+    evaluation_weights: Dict[str, float] = Field(
+        default_factory=lambda: {"progress": 0.4, "promise": 0.3, "confidence": 0.3}
+    )
     use_reranker: bool = False
     reranker_model: str = "BAAI/bge-reranker-base"
     reranker_top_n: int = 3
+
 
 class RunTask(BaseModel):
     task_id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -45,9 +64,11 @@ class RunTask(BaseModel):
     constraints: Optional[str] = ''
     history: Optional[List[str]] = []
 
+
 class Candidate(BaseModel):
     text: str
     meta: Optional[Dict[str, Any]] = {}
+
 
 class ValueScore(BaseModel):
     progress: float = Field(..., ge=0, le=10)
@@ -55,6 +76,7 @@ class ValueScore(BaseModel):
     confidence: float = Field(..., ge=0, le=10)
     justification: str
     meta: Optional[Dict[str, Any]] = {}
+
 
 class Node(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -81,12 +103,13 @@ class Node(BaseModel):
     def path_string(self, all_nodes: Dict[str, 'Node']) -> str:
         return '\n'.join(self.path_texts(all_nodes))
 
+
 class GraphState(BaseModel):
     run_id: str
     task: RunTask
     config: RunConfig
     nodes: Dict[str, Node] = Field(default_factory=dict)
-    frontier: List[str] = Field(default_factory=list) # List of node IDs
+    frontier: List[str] = Field(default_factory=list)  # List of node IDs
     root_id: Optional[str] = None
     best_node_id: Optional[str] = None
     nodes_expanded: int = 0
@@ -98,7 +121,9 @@ class GraphState(BaseModel):
     # Campos privados não serializáveis
     _semantic_cache: Optional['SemanticCache'] = None
     _cancellation_event: Optional[asyncio.Event] = None
-    _thread_lock: threading.RLock = threading.RLock()  # Lock reentrant para thread safety
+    _thread_lock: threading.RLock = (
+        threading.RLock()
+    )  # Lock reentrant para thread safety
     _validation_level: ValidationLevel = ValidationLevel.BASIC
 
     class Config:
@@ -119,7 +144,7 @@ class GraphState(BaseModel):
     def semantic_cache(self) -> Optional['SemanticCache']:
         """Acesso ao cache semântico (não serializado)"""
         return self._semantic_cache
-    
+
     @semantic_cache.setter
     def semantic_cache(self, value: Optional['SemanticCache']) -> None:
         """Define o cache semântico com thread safety"""
@@ -139,7 +164,7 @@ class GraphState(BaseModel):
     def cancellation_event(self) -> Optional[asyncio.Event]:
         """Acesso ao evento de cancelamento (não serializado)"""
         return self._cancellation_event
-    
+
     @cancellation_event.setter
     def cancellation_event(self, value: Optional[asyncio.Event]) -> None:
         """Define o evento de cancelamento com thread safety"""
@@ -150,15 +175,20 @@ class GraphState(BaseModel):
     def validation_level(self) -> ValidationLevel:
         """Nível atual de validação"""
         return self._validation_level
-    
+
     @validation_level.setter
     def validation_level(self, level: ValidationLevel) -> None:
         """Define o nível de validação"""
         self._validation_level = level
 
     @classmethod
-    def create(cls, run_id: str, task: RunTask, config: RunConfig, 
-               validation_level: ValidationLevel = ValidationLevel.BASIC) -> 'GraphState':
+    def create(
+        cls,
+        run_id: str,
+        task: RunTask,
+        config: RunConfig,
+        validation_level: ValidationLevel = ValidationLevel.BASIC,
+    ) -> 'GraphState':
         """Factory method para criação com inicialização adequada"""
         state = cls(run_id=run_id, task=task, config=config)
         state.validation_level = validation_level
@@ -173,15 +203,15 @@ class GraphState(BaseModel):
     def validate_state(self, level: Optional[ValidationLevel] = None) -> bool:
         """
         Valida se o estado está consistente
-        
+
         Args:
             level: Nível de validação (usa self._validation_level se None)
         """
         validation_level = level or self._validation_level
-        
+
         if validation_level == ValidationLevel.NONE:
             return True
-            
+
         # Validação básica
         if validation_level in [ValidationLevel.BASIC, ValidationLevel.STRICT]:
             if self.root_id and self.root_id not in self.nodes:
@@ -190,32 +220,34 @@ class GraphState(BaseModel):
                 return False
             if not all(node_id in self.nodes for node_id in self.frontier):
                 return False
-        
+
         # Validação estrita adicional
         if validation_level == ValidationLevel.STRICT:
             # Verifica se todos os parent_ids são válidos
             for node in self.nodes.values():
                 if node.parent_id and node.parent_id not in self.nodes:
                     return False
-            
+
             # Verifica se todas as children_ids são válidas
             for node in self.nodes.values():
                 if not all(child_id in self.nodes for child_id in node.children_ids):
                     return False
-                    
+
             # Verifica consistência parent-child
             for node in self.nodes.values():
                 if node.parent_id:
                     parent = self.nodes[node.parent_id]
                     if node.id not in parent.children_ids:
                         return False
-        
+
         return True
 
     def ensure_valid_state(self, level: Optional[ValidationLevel] = None) -> None:
         """Garante que o estado é válido, levantando exceção se não for"""
         if not self.validate_state(level):
-            raise ValueError(f"Estado inconsistente detectado (level: {level or self._validation_level})")
+            raise ValueError(
+                f"Estado inconsistente detectado (level: {level or self._validation_level})"
+            )
 
     @validator('root_id', 'best_node_id')
     def validate_node_references(cls, v, values):
@@ -229,7 +261,10 @@ class GraphState(BaseModel):
     def is_cancelled(self) -> bool:
         """Verifica se a execução foi cancelada (thread-safe)"""
         with self._thread_lock:
-            return self._cancellation_event is not None and self._cancellation_event.is_set()
+            return (
+                self._cancellation_event is not None
+                and self._cancellation_event.is_set()
+            )
 
     def cancel(self) -> None:
         """Cancela a execução atual (thread-safe)"""
@@ -277,7 +312,9 @@ class GraphState(BaseModel):
                 if not self.validate_state():
                     # Rollback em caso de estado inválido
                     del self.nodes[node.id]
-                    raise ValueError(f"Adicionar nó {node.id} resultaria em estado inválido")
+                    raise ValueError(
+                        f"Adicionar nó {node.id} resultaria em estado inválido"
+                    )
 
     def update_frontier_safe(self, frontier: List[str]) -> None:
         """Atualiza frontier de forma thread-safe com validação"""

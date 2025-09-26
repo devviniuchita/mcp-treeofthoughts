@@ -1,8 +1,20 @@
-from typing import TypedDict, List, Dict, Any
-from langgraph.graph import StateGraph, END
+from typing import Any
+from typing import List
+from typing import TypedDict
 
-from .models import GraphState, Node, RunConfig, RunTask
-from .nodes import initialize_graph, propose_thoughts, evaluate_thoughts, select_and_prune, check_stop_condition, finalize_solution, rerank_thoughts
+from langgraph.graph import END
+from langgraph.graph import StateGraph
+from models import GraphState
+from models import Node
+from models import RunConfig
+from models import RunTask
+from nodes import check_stop_condition
+from nodes import evaluate_thoughts
+from nodes import finalize_solution
+from nodes import initialize_graph
+from nodes import propose_thoughts
+from nodes import rerank_thoughts
+from nodes import select_and_prune
 
 
 def create_tot_graph():
@@ -31,11 +43,10 @@ def create_tot_graph():
         "select",
         check_stop_condition,
         {
-            "continue": "propose", # Loop back to propose if not stopped
-            "finalize": "finalize" # Go to finalize if stop condition met
-        }
+            "continue": "propose",  # Loop back to propose if not stopped
+            "finalize": "finalize",  # Go to finalize if stop condition met
+        },
     )
     workflow.add_edge("finalize", END)
 
     return workflow.compile()
-

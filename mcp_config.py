@@ -25,19 +25,26 @@ from __future__ import annotations
 import datetime
 import json
 import re
+
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from typing import TYPE_CHECKING
+from typing import Annotated
+from typing import Any
+from typing import Literal
 from urllib.parse import urlparse
 
 import httpx
-from pydantic import AnyUrl, BaseModel, ConfigDict, Field
+
+from pydantic import AnyUrl
+from pydantic import BaseModel
+from pydantic import ConfigDict
+from pydantic import Field
+
 
 if TYPE_CHECKING:
-    from fastmcp.client.transports import (
-        SSETransport,
-        StdioTransport,
-        StreamableHttpTransport,
-    )
+    from fastmcp.client.transports import SSETransport
+    from fastmcp.client.transports import StdioTransport
+    from fastmcp.client.transports import StreamableHttpTransport
 
 
 def infer_transport_type_from_url(
@@ -138,7 +145,8 @@ class RemoteMCPServer(BaseModel):
     )  # Preserve unknown fields
 
     def to_transport(self) -> StreamableHttpTransport | SSETransport:
-        from fastmcp.client.transports import SSETransport, StreamableHttpTransport
+        from fastmcp.client.transports import SSETransport
+        from fastmcp.client.transports import StreamableHttpTransport
 
         if self.transport is None:
             transport = infer_transport_type_from_url(self.url)

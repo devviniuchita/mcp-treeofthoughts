@@ -1,6 +1,12 @@
-from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
-from ..models import Node, GraphState
+from abc import ABC
+from abc import abstractmethod
+from typing import Any
+from typing import List
+from typing import Optional
+
+from models import GraphState
+from models import Node
+
 
 class SearchStrategy(ABC):
     @abstractmethod
@@ -17,4 +23,3 @@ class SearchStrategy(ABC):
     def get_best_node(self, state: GraphState) -> Optional[Node]:
         """Retorna o melhor nó encontrado até o momento."""
         pass
-

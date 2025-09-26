@@ -39,4 +39,3 @@ Chain:
 
 Return a single textual answer.
 '''
-
