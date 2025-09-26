@@ -11,6 +11,7 @@ from .prompts import PROPOSE_PROMPT, FINALIZE_PROMPT
 from .evaluation.hybrid_evaluator import HybridEvaluator, LLMValueScore
 from .cache.semantic_cache import SemanticCache
 from .strategies.beam_search import BeamSearch # Assuming BeamSearch as default
+from src.reranker.bge_reranker import BGEReranker
 
 # Initialize LLM for proposing thoughts
 propose_llm = get_chat_llm(model="gemini-2.5-flash", temperature=0.7) # Will be updated to use state.config.propose_temp later
@@ -238,4 +239,55 @@ def finalize_solution(state: GraphState) -> GraphState:
     print(f"[FINALIZE] Final Answer: {final_answer}")
     return state
 
+
+
+
+def rerank_thoughts(state: GraphState) -> GraphState:
+    """Reranks the newly generated thoughts in the frontier using BGE Reranker."""
+    if state.cancellation_event and state.cancellation_event.is_set():
+        print("[RERANK] Cancellation requested, stopping.")
+        return state
+
+    if not state.frontier:
+        print("[RERANK] Frontier is empty, nothing to rerank.")
+        return state
+
+    if not state.config.use_reranker:
+        print("[RERANK] Reranker is disabled in config. Skipping reranking.")
+        return state
+
+    print(f"[RERANK] Reranking {len(state.frontier)} thoughts.")
+
+    reranker_instance = BGEReranker(model_name=state.config.reranker_model)
+    
+    # Get the actual text of the thoughts in the frontier
+    thoughts_to_rerank = [state.nodes[node_id].text for node_id in state.frontier]
+    
+    # The query for reranking is the original task instruction
+    query = state.task.instruction
+    
+    # Perform reranking
+    # The reranker returns a list of (document_text, score) tuples, sorted by score
+    reranked_results = reranker_instance.rerank(
+        query=query,
+        documents=thoughts_to_rerank,
+        top_n=state.config.reranker_top_n
+    )
+
+    # Create a mapping from original thought text to its node_id
+    thought_text_to_id = {state.nodes[node_id].text: node_id for node_id in state.frontier}
+
+    # Update the frontier with the reranked (and potentially pruned) nodes
+    new_frontier_ids = []
+    for text, score in reranked_results:
+        node_id = thought_text_to_id.get(text)
+        if node_id:
+            # Optionally, store the reranker score in the node for debugging/analysis
+            state.nodes[node_id].reranker_score = score
+            new_frontier_ids.append(node_id)
+
+    state.frontier = new_frontier_ids
+    print(f"[RERANK] Frontier after reranking: {len(state.frontier)} nodes (top {state.config.reranker_top_n}).")
+
+    return state
 

@@ -22,13 +22,13 @@ A arquitetura do MCP TreeOfThoughts é projetada para ser modular, extensível e
 | Tecnologia | Propósito | Justificativa |
 | :--- | :--- | :--- |
 | **Python 3.9+** | Linguagem de programação principal | Ecossistema maduro para IA e desenvolvimento web, com vasto suporte de bibliotecas. |
-| **FastAPI** | Framework da API | Oferece alta performance, validação de dados nativa com Pydantic e geração automática de documentação interativa (Swagger UI). Ideal para criar APIs RESTful robustas. |
+| **fastmcp** | Framework do Protocolo MCP | Oferece implementação nativa do Model Context Protocol, validação de dados com Pydantic e integração direta com clientes MCP como Cursor e Claude Desktop. Ideal para criar servidores MCP robustos. |
 | **LangChain / LangGraph** | Orquestração do fluxo de trabalho | `LangGraph` fornece uma maneira poderosa e explícita de definir a lógica de controle como um grafo de estados cíclico, o que é perfeito para a natureza iterativa do ToT. Facilita a depuração e a visualização do fluxo. |
 | **Pydantic V2** | Modelagem e validação de dados | Garante a integridade dos dados em toda a aplicação, desde as requisições da API até os estados internos do grafo. Essencial para a robustez e para evitar erros de tipo. |
 | **Google Generative AI (Gemini)** | Modelos de Linguagem (LLM) | Fornece acesso a modelos de última geração para as tarefas de geração e avaliação de pensamentos. A biblioteca `google-generativeai` é usada para a integração. |
 | **FAISS (Facebook AI Similarity Search)** | Cache Semântico | Permite a busca de similaridade em alta velocidade em milhões de vetores. Usado para criar um cache semântico que encontra pensamentos ou avaliações semanticamente similares, evitando recálculos e economizando custos de API. |
 | **NumPy** | Computação numérica | Dependência fundamental para o FAISS e para a manipulação de vetores de embedding. |
-| **Uvicorn** | Servidor ASGI | Servidor de alta performance necessário para executar a aplicação FastAPI. |
+
 | **Pytest** | Framework de testes | Padrão da indústria para testes em Python, permitindo a criação de testes unitários e de integração robustos. |
 
 ### 2.2. Diagrama da Arquitetura
@@ -38,13 +38,13 @@ O diagrama abaixo ilustra a interação entre os principais componentes do siste
 ```mermaid
 graph TD
     subgraph "Cliente Externo"
-        A[Usuário/Aplicação] -->|1. Requisição POST /run| B(API FastAPI)
+        A[Usuário/Aplicação] -->|1. Chamada de Tool/Recurso MCP| B(MCP Server (fastmcp))
     end
 
-    subgraph "Camada de API (api/server.py)"
-        B -->|2. Cria GraphState e Inicia Background Task| C{LangGraph Executor}
-        B -->|6. Retorna run_id| A
-        D[Endpoints /status, /trace, /stop] -->|7. Consulta/Modifica| E[Active Runs Storage]
+    subgraph "Camada de Servidor MCP (server.py)"
+        B -->|2. Invoca Tool/Recurso MCP| C{LangGraph Executor}
+        B -->|6. Retorna Resultado| A
+        D[Tools/Recursos MCP] -->|7. Consulta/Modifica| E[Active Runs Storage]
     end
 
     subgraph "Camada de Orquestração (src/graph.py)"
@@ -81,7 +81,7 @@ graph TD
 
 ### 2.3. Detalhamento dos Componentes
 
-- **API (FastAPI)**: A porta de entrada do sistema. É responsável por receber as requisições, validá-las usando os modelos Pydantic, iniciar as execuções em background para não bloquear o cliente, e fornecer endpoints para monitoramento e controle.
+- **Servidor MCP (fastmcp)**: A porta de entrada do sistema. É responsável por expor as ferramentas (tools) e recursos (resources) MCP, validar as chamadas usando os modelos Pydantic, iniciar as execuções em background para não bloquear o cliente, e gerenciar o estado das execuções para monitoramento e controle.
 
 - **LangGraph Executor**: O motor que executa o grafo de estados. Ele gerencia a transição entre os nós (`propose`, `evaluate`, etc.) com base nas arestas condicionais (como a saída de `check_stop_condition`).
 

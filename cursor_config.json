@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "mcp-treeofthoughts": {
+      "command": "python",
+      "args": ["/caminho/absoluto/para/server.py"],
+      "env": {
+        "GOOGLE_API_KEY": "sua_chave_api_do_google_aqui",
+        "GEMINI_API_KEY": "sua_chave_api_do_gemini_aqui",
+        "LANG_SMITH_API_KEY": "sua_chave_api_do_langsmith_aqui"
+      }
+    }
+  }
+}
+

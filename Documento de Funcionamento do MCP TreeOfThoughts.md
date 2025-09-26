@@ -111,14 +111,17 @@ O fluxo principal é o seguinte:
 3.  **Armazenamento da Resposta**: A resposta gerada pelo LLM é armazenada em `state.final_answer`.
 4.  **Registro de Métricas**: Popula o `state.metrics` com estatísticas finais da execução, como `nodes_expanded`, `final_score`, `time_taken` e `stop_reason`.
 
-## 3. Interação com a API (FastAPI)
+## 3. Interação com o Servidor MCP (fastmcp)
 
-- **Arquivo**: `api/server.py`
+- **Arquivo**: `server.py`
 
-O servidor FastAPI atua como a interface externa para o MCP.
+O servidor `fastmcp` atua como a interface externa para o MCP, expondo as funcionalidades como *tools* e *resources* nativos do protocolo.
 
-- **`POST /run`**: Recebe uma `RunRequest` (contendo a tarefa e a configuração), cria o `GraphState` inicial, armazena o objeto de estado em `active_runs`, e inicia a execução do grafo em uma tarefa de background (`_run_in_background`).
-- **`GET /status/{run_id}`**: Retorna o status atual (`running`, `completed`, `failed`, `cancelled`) de uma execução.
-- **`GET /trace/{run_id}`**: Retorna o estado final completo de uma execução, incluindo a resposta final e as métricas.
-- **`POST /stop/{run_id}`**: Acessa o objeto `GraphState` da execução em `active_runs` e aciona o `cancellation_event`, sinalizando para o grafo que a execução deve ser interrompida.
+- **`iniciar_processo_tot` (Tool)**: Recebe os parâmetros da tarefa e configuração, cria o `GraphState` inicial, armazena o objeto de estado em `active_runs`, e inicia a execução do grafo em uma tarefa de background assíncrona.
+- **`verificar_status` (Tool)**: Retorna o status atual (`running`, `completed`, `failed`, `cancelled`) de uma execução com base no `run_id`.
+- **`obter_resultado_completo` (Tool)**: Retorna o estado final completo de uma execução concluída, incluindo a resposta final e as métricas.
+- **`cancelar_execucao` (Tool)**: Acessa o objeto de estado da execução em `active_runs` e marca seu status como `cancelled`, sinalizando para o processo em background que a execução deve ser interrompida (o cancelamento pode não ser imediato).
+- **`listar_execucoes` (Tool)**: Retorna um resumo de todas as execuções ativas e finalizadas armazenadas em memória.
+- **`config://defaults` (Resource)**: Retorna a configuração padrão do sistema, carregada de `defaults.json` ou hardcoded.
+- **`info://sobre` (Resource)**: Retorna informações gerais sobre o servidor MCP TreeOfThoughts.
 
