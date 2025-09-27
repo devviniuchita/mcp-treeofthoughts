@@ -584,7 +584,9 @@ if STARLETTE_AVAILABLE:
 
             token = auth.split(" ", 1)[1]
             if token != expected:
-                print(f"🚫 Token mismatch - provided: {token[:10]}..., expected: {expected[:10]}...")
+                print(
+                    f"🚫 Token mismatch - provided: {token[:10]}..., expected: {expected[:10]}..."
+                )
                 return JSONResponse({"error": "invalid_token"}, status_code=403)
 
             print(f"✅ Authorization successful for token: {token[:10]}...")
@@ -620,7 +622,9 @@ try:
                 asgi_app.add_middleware(AuthorizationMiddleware)
                 print("✅ AuthorizationMiddleware attached to ASGI app successfully")
             else:
-                print("❌ Starlette not available or AuthorizationMiddleware is None - cannot attach")
+                print(
+                    "❌ Starlette not available or AuthorizationMiddleware is None - cannot attach"
+                )
         except Exception as inner_e:
             print(f"⚠️ Failed to attach to main app: {inner_e}")
             # Some wrappers may expose a Starlette app under .app or require different API.
@@ -629,9 +633,13 @@ try:
                 try:
                     if STARLETTE_AVAILABLE and AuthorizationMiddleware is not None:
                         asgi_app.app.add_middleware(AuthorizationMiddleware)
-                        print("✅ AuthorizationMiddleware attached to inner app successfully")
+                        print(
+                            "✅ AuthorizationMiddleware attached to inner app successfully"
+                        )
                     else:
-                        print("❌ Starlette not available or AuthorizationMiddleware is None - cannot attach to inner app")
+                        print(
+                            "❌ Starlette not available or AuthorizationMiddleware is None - cannot attach to inner app"
+                        )
                 except Exception as inner_inner_e:
                     print(f"❌ Failed to attach to inner app: {inner_inner_e}")
             else:
@@ -639,9 +647,7 @@ try:
                     "❌ Could not attach AuthorizationMiddleware automatically; manual attachment required"
                 )
     else:
-        print(
-            "⚠️ FastMCP ASGI app not found; AuthorizationMiddleware not attached"
-        )
+        print("⚠️ FastMCP ASGI app not found; AuthorizationMiddleware not attached")
 except Exception as e:
     print(f"❌ Error while attempting to attach AuthorizationMiddleware: {e}")
 
