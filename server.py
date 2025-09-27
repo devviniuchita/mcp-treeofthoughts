@@ -36,10 +36,11 @@ from src.models import RunTask
 from src.utils.path_mirror import ensure_mirror
 
 
-class AuthMiddleware(Middleware):
+class TokenAuthMiddleware(Middleware):
     """Middleware de autenticação simples para tokens Bearer."""
 
     def __init__(self, expected_token: str):
+        super().__init__()
         self.expected_token = expected_token
 
     async def on_request(self, context: MiddlewareContext, call_next):
@@ -70,8 +71,8 @@ middleware = []
 auth_token = os.getenv("AUTH_TOKEN")
 
 if auth_token:
-    middleware.append(AuthMiddleware(token=auth_token))
-    print(f"🔐 AuthMiddleware configurado: length={len(auth_token)} characters")
+    middleware.append(TokenAuthMiddleware(expected_token=auth_token))
+    print(f"🔐 TokenAuthMiddleware configurado: length={len(auth_token)} characters")
 else:
     print("🔓 AUTH_TOKEN não configurado - authentication disabled")
 
