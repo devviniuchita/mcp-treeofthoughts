@@ -25,6 +25,7 @@ from pydantic import BaseModel
 # Importar auth provider nativo do FastMCP se disponível
 try:
     from fastmcp.server.auth import BearerAuthProvider
+
     FASTMCP_AUTH_AVAILABLE = True
 except ImportError:
     BearerAuthProvider = None
