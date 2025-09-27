@@ -544,6 +544,64 @@ mcp.resource("config://defaults")(obter_configuracao_padrao)
 mcp.resource("info://sobre")(obter_informacoes_sistema)
 
 
+class AuthorizationMiddleware(BaseHTTPMiddleware):
+    """Middleware simples que valida o header Authorization: Bearer <token>.
+
+    O token esperado é lido da variável de ambiente AUTH_TOKEN. Defina essa
+    variável como secret no painel FastMCP Cloud (sem aspas) para proteger o
+    acesso ao servidor MCP.
+    """
+
+    async def dispatch(self, request, call_next):
+        expected = os.getenv("AUTH_TOKEN")
+        # If no token configured, allow all requests (safe default for internal setups).
+        if not expected:
+            return await call_next(request)
+
+        auth = request.headers.get("authorization") or request.headers.get(
+            "Authorization"
+        )
+        if not auth or not auth.startswith("Bearer "):
+            return JSONResponse({"error": "missing_authorization"}, status_code=401)
+
+        token = auth.split(" ", 1)[1]
+        if token != expected:
+            return JSONResponse({"error": "invalid_token"}, status_code=403)
+
+        return await call_next(request)
+
+
+# After registering tools but before running the server, attempt to attach middleware to the ASGI app
+try:
+    # FastMCP exposes an ASGI application on common attributes depending on version
+    asgi_app = None
+    for attr in ("app", "fastapi_app", "asgi_app"):
+        if hasattr(mcp, attr):
+            asgi_app = getattr(mcp, attr)
+            break
+
+    if asgi_app is not None:
+        # The ASGI app should support add_middleware (Starlette/FastAPI)
+        try:
+            asgi_app.add_middleware(AuthorizationMiddleware)
+            print("AuthorizationMiddleware attached to ASGI app")
+        except Exception:
+            # Some wrappers may expose a Starlette app under .app or require different API.
+            # In that case, try to access the underlying Starlette/FastAPI instance.
+            if hasattr(asgi_app, "app") and hasattr(asgi_app.app, "add_middleware"):
+                asgi_app.app.add_middleware(AuthorizationMiddleware)
+                print("AuthorizationMiddleware attached to inner app")
+            else:
+                print(
+                    "Warning: could not attach AuthorizationMiddleware automatically; please attach it manually if required."
+                )
+    else:
+        print(
+            "Warning: FastMCP ASGI app not found; AuthorizationMiddleware not attached."
+        )
+except Exception as e:
+    print(f"Warning: error while attempting to attach AuthorizationMiddleware: {e}")
+
 if __name__ == "__main__":
     # Configurar variáveis de ambiente se necessário
     if os.path.exists(".env"):
