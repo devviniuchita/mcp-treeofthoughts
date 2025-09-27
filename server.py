@@ -25,7 +25,6 @@ from pydantic import BaseModel
 # Importar auth provider nativo do FastMCP se disponível
 try:
     from fastmcp.server.auth import BearerAuthProvider
-
     FASTMCP_AUTH_AVAILABLE = True
 except ImportError:
     BearerAuthProvider = None
@@ -40,20 +39,35 @@ from src.models import RunTask
 from src.utils.path_mirror import ensure_mirror
 
 
+# Auth provider simples para tokens não-JWT
+class SimpleTokenAuthProvider:
+    """Auth provider simples que valida tokens string contra AUTH_TOKEN env var."""
+    
+    def __init__(self, token: str):
+        self.expected_token = token
+        
+    async def authenticate(self, request) -> bool:
+        """Validate incoming request has correct Bearer token."""
+        auth_header = request.headers.get("authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return False
+            
+        token = auth_header.split(" ", 1)[1]
+        return token == self.expected_token
+
+
 # Configurar autenticação se AUTH_TOKEN estiver presente
 auth_provider = None
 auth_token = os.getenv("AUTH_TOKEN")
 
-if auth_token and FASTMCP_AUTH_AVAILABLE:
-    # Usar o BearerAuthProvider nativo do FastMCP
-    auth_provider = BearerAuthProvider(token=auth_token)
-    print(f"🔐 BearerAuthProvider configurado: length={len(auth_token)} characters")
-elif auth_token and not FASTMCP_AUTH_AVAILABLE:
-    print("⚠️ AUTH_TOKEN configurado mas BearerAuthProvider não disponível")
+if auth_token:
+    # Usar auth provider simples que aceita tokens UUID/string
+    auth_provider = SimpleTokenAuthProvider(token=auth_token)
+    print(f"🔐 SimpleTokenAuthProvider configurado: length={len(auth_token)} characters")
 else:
     print("🔓 AUTH_TOKEN não configurado - authentication disabled")
 
-# Inicializar o servidor MCP com auth se configurado
+# Inicializar o servidor MCP com auth se configurado  
 mcp = FastMCP("MCP TreeOfThoughts", auth=auth_provider)
 
 # Armazenamento em memória para execuções ativas
