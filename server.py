@@ -25,6 +25,7 @@ from pydantic import BaseModel
 # Importar auth provider nativo do FastMCP se disponível
 try:
     from fastmcp.server.auth import BearerAuthProvider
+
     FASTMCP_AUTH_AVAILABLE = True
 except ImportError:
     BearerAuthProvider = None
@@ -40,22 +41,46 @@ from src.utils.path_mirror import ensure_mirror
 
 
 # Auth provider simples para tokens não-JWT
+from fastmcp.server.middleware import Middleware, MiddlewareContext
+from mcp import McpError
+from mcp.types import ErrorData
+
 class SimpleTokenAuthProvider:
     """Auth provider simples que valida tokens string contra AUTH_TOKEN env var."""
     
     def __init__(self, token: str):
         self.expected_token = token
         
-    async def authenticate(self, request) -> bool:
-        """Validate incoming request has correct Bearer token."""
-        auth_header = request.headers.get("authorization")
+    def get_middleware(self) -> "SimpleTokenAuthMiddleware":
+        """Retorna o middleware de autenticação."""
+        return SimpleTokenAuthMiddleware(self.expected_token)
+
+
+class SimpleTokenAuthMiddleware(Middleware):
+    """Middleware que valida Authorization: Bearer <token>."""
+    
+    def __init__(self, expected_token: str):
+        self.expected_token = expected_token
+        
+    async def on_request(self, context: MiddlewareContext, call_next):
+        """Validate Bearer token in all requests."""
+        
+        # Skip validation if no HTTP context available (e.g., stdio transport)
+        if not hasattr(context, 'request') or not context.request:
+            return await call_next(context)
+        
+        auth_header = context.request.headers.get("authorization")
         if not auth_header or not auth_header.startswith("Bearer "):
-            return False
+            print(f"🚫 Missing or invalid Authorization header: {auth_header}")
+            raise McpError(ErrorData(code=-32001, message="Authorization required"))
             
         token = auth_header.split(" ", 1)[1]
-        return token == self.expected_token
-
-
+        if token != self.expected_token:
+            print(f"🚫 Token mismatch - provided: {token[:10]}..., expected: {self.expected_token[:10]}...")
+            raise McpError(ErrorData(code=-32002, message="Invalid token"))
+            
+        print(f"✅ Authorization successful for token: {token[:10]}...")
+        return await call_next(context)
 # Configurar autenticação se AUTH_TOKEN estiver presente
 auth_provider = None
 auth_token = os.getenv("AUTH_TOKEN")
@@ -63,11 +88,13 @@ auth_token = os.getenv("AUTH_TOKEN")
 if auth_token:
     # Usar auth provider simples que aceita tokens UUID/string
     auth_provider = SimpleTokenAuthProvider(token=auth_token)
-    print(f"🔐 SimpleTokenAuthProvider configurado: length={len(auth_token)} characters")
+    print(
+        f"🔐 SimpleTokenAuthProvider configurado: length={len(auth_token)} characters"
+    )
 else:
     print("🔓 AUTH_TOKEN não configurado - authentication disabled")
 
-# Inicializar o servidor MCP com auth se configurado  
+# Inicializar o servidor MCP com auth se configurado
 mcp = FastMCP("MCP TreeOfThoughts", auth=auth_provider)
 
 # Armazenamento em memória para execuções ativas
