@@ -21,6 +21,20 @@ from typing import Union
 from fastmcp import FastMCP
 from pydantic import BaseModel
 
+
+# Import starlette middleware/responses de forma segura (podem não estar
+# presentes em todos os ambientes de execução). Definimos uma flag para
+# condicionalmente habilitar o AuthorizationMiddleware.
+try:
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.responses import JSONResponse
+
+    STARLETTE_AVAILABLE = True
+except Exception:
+    BaseHTTPMiddleware = None
+    JSONResponse = None
+    STARLETTE_AVAILABLE = False
+
 from src.graph import create_tot_graph
 
 # Importações do projeto original
@@ -544,32 +558,38 @@ mcp.resource("config://defaults")(obter_configuracao_padrao)
 mcp.resource("info://sobre")(obter_informacoes_sistema)
 
 
-class AuthorizationMiddleware(BaseHTTPMiddleware):
-    """Middleware simples que valida o header Authorization: Bearer <token>.
+if STARLETTE_AVAILABLE:
 
-    O token esperado é lido da variável de ambiente AUTH_TOKEN. Defina essa
-    variável como secret no painel FastMCP Cloud (sem aspas) para proteger o
-    acesso ao servidor MCP.
-    """
+    class AuthorizationMiddleware(BaseHTTPMiddleware):
+        """Middleware simples que valida o header Authorization: Bearer <token>.
 
-    async def dispatch(self, request, call_next):
-        expected = os.getenv("AUTH_TOKEN")
-        # If no token configured, allow all requests (safe default for internal setups).
-        if not expected:
+        O token esperado é lido da variável de ambiente AUTH_TOKEN. Defina essa
+        variável como secret no painel FastMCP Cloud (sem aspas) para proteger o
+        acesso ao servidor MCP.
+        """
+
+        async def dispatch(self, request, call_next):
+            expected = os.getenv("AUTH_TOKEN")
+            # If no token configured, allow all requests (safe default for internal setups).
+            if not expected:
+                return await call_next(request)
+
+            auth = request.headers.get("authorization") or request.headers.get(
+                "Authorization"
+            )
+            if not auth or not auth.startswith("Bearer "):
+                return JSONResponse({"error": "missing_authorization"}, status_code=401)
+
+            token = auth.split(" ", 1)[1]
+            if token != expected:
+                return JSONResponse({"error": "invalid_token"}, status_code=403)
+
             return await call_next(request)
 
-        auth = request.headers.get("authorization") or request.headers.get(
-            "Authorization"
-        )
-        if not auth or not auth.startswith("Bearer "):
-            return JSONResponse({"error": "missing_authorization"}, status_code=401)
-
-        token = auth.split(" ", 1)[1]
-        if token != expected:
-            return JSONResponse({"error": "invalid_token"}, status_code=403)
-
-        return await call_next(request)
-
+else:
+    print(
+        "Warning: starlette not available in this environment; AuthorizationMiddleware disabled."
+    )
 
 # After registering tools but before running the server, attempt to attach middleware to the ASGI app
 try:
