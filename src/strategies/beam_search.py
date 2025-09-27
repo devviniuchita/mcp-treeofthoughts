@@ -1,10 +1,9 @@
-from typing import Any
 from typing import List
 from typing import Optional
 
-from base import SearchStrategy
-from models import GraphState
-from models import Node
+from src.base import SearchStrategy
+from src.models import GraphState
+from src.models import Node
 
 
 class BeamSearch(SearchStrategy):
@@ -31,7 +30,8 @@ class BeamSearch(SearchStrategy):
         ]
 
         # Sort all valid nodes by score in descending order
-        # Nodes without a score (e.g., root before evaluation) should be handled gracefully, perhaps at the end.
+        # Nodes without a score (e.g., root before evaluation)
+        # should be handled gracefully, perhaps at the end.
         valid_nodes.sort(
             key=lambda node: node.score if node.score is not None else -1, reverse=True
         )

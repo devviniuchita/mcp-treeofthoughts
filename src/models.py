@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import threading
 import time
@@ -12,13 +14,17 @@ from typing import List
 from typing import Optional
 
 from pydantic import BaseModel
+from pydantic import ConfigDict
 from pydantic import Field
-from pydantic import validator
+from pydantic import PrivateAttr
+from pydantic import ValidationInfo
+from pydantic import field_validator
 
 
-# Evita importações circulares usando TYPE_CHECKING
 if TYPE_CHECKING:
-    from semantic_cache import SemanticCache
+    from src.semantic_cache import SemanticCache as SemanticCacheType
+else:  # pragma: no cover - fallback para execução sem cache
+    SemanticCacheType = Any  # type: ignore[misc, assignment]
 
 
 class ValidationLevel(Enum):
@@ -31,8 +37,6 @@ class ValidationLevel(Enum):
 
 class CacheRequiredError(Exception):
     """Exceção levantada quando semantic cache é necessário mas não inicializado"""
-
-    pass
 
 
 class RunConfig(BaseModel):
@@ -62,12 +66,12 @@ class RunTask(BaseModel):
     task_id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()))
     instruction: str
     constraints: Optional[str] = ''
-    history: Optional[List[str]] = []
+    history: List[str] = Field(default_factory=list)
 
 
 class Candidate(BaseModel):
     text: str
-    meta: Optional[Dict[str, Any]] = {}
+    meta: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ValueScore(BaseModel):
@@ -75,7 +79,7 @@ class ValueScore(BaseModel):
     promise: float = Field(..., ge=0, le=10)
     confidence: float = Field(..., ge=0, le=10)
     justification: str
-    meta: Optional[Dict[str, Any]] = {}
+    meta: Dict[str, Any] = Field(default_factory=dict)
 
 
 class Node(BaseModel):
@@ -85,7 +89,7 @@ class Node(BaseModel):
     depth: int = 0
     score: Optional[float] = None
     raw_scores: Optional[ValueScore] = None
-    children_ids: List[str] = []
+    children_ids: List[str] = Field(default_factory=list)
     is_solution: bool = False
     reranker_score: Optional[float] = None
 
@@ -113,24 +117,21 @@ class GraphState(BaseModel):
     root_id: Optional[str] = None
     best_node_id: Optional[str] = None
     nodes_expanded: int = 0
-    start_time: float = Field(default_factory=lambda: time.time())
+    start_time: float = Field(default_factory=time.time)
     final_answer: Optional[str] = None
     metrics: Dict[str, Any] = Field(default_factory=dict)
     stop_reason: Optional[str] = None
 
     # Campos privados não serializáveis
-    _semantic_cache: Optional['SemanticCache'] = None
-    _cancellation_event: Optional[asyncio.Event] = None
-    _thread_lock: threading.RLock = (
-        threading.RLock()
-    )  # Lock reentrant para thread safety
-    _validation_level: ValidationLevel = ValidationLevel.BASIC
+    _semantic_cache: Optional[SemanticCacheType] = PrivateAttr(default=None)
+    _cancellation_event: Optional[asyncio.Event] = PrivateAttr(default=None)
+    _thread_lock: threading.RLock = PrivateAttr(default_factory=threading.RLock)
+    _validation_level: ValidationLevel = PrivateAttr(default=ValidationLevel.BASIC)
 
-    class Config:
-        arbitrary_types_allowed = True
-        # Campos privados não são incluídos na serialização por padrão
-        underscore_attrs_are_private = True
-        validate_assignment = True  # Valida na atribuição também
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        validate_assignment=True,
+    )
 
     def __init__(self, **data):
         """Inicialização com configuração automática do estado de runtime"""
@@ -141,17 +142,17 @@ class GraphState(BaseModel):
             raise ValueError("Estado inicial inconsistente")
 
     @property
-    def semantic_cache(self) -> Optional['SemanticCache']:
+    def semantic_cache(self) -> Optional[SemanticCacheType]:
         """Acesso ao cache semântico (não serializado)"""
         return self._semantic_cache
 
     @semantic_cache.setter
-    def semantic_cache(self, value: Optional['SemanticCache']) -> None:
+    def semantic_cache(self, value: Optional[SemanticCacheType]) -> None:
         """Define o cache semântico com thread safety"""
         with self._thread_lock:
             self._semantic_cache = value
 
-    def get_semantic_cache_required(self) -> 'SemanticCache':
+    def get_semantic_cache_required(self) -> SemanticCacheType:
         """Obtém o cache semântico, levantando exceção se não inicializado"""
         if self._semantic_cache is None:
             raise CacheRequiredError(
@@ -200,6 +201,30 @@ class GraphState(BaseModel):
             if self._cancellation_event is None:
                 self._cancellation_event = asyncio.Event()
 
+    def model_copy(self, *args, **kwargs):  # type: ignore[override]
+        """Garante que cópias recebem locks e eventos próprios."""
+
+        copied = super().model_copy(*args, **kwargs)
+        if isinstance(copied, GraphState):
+            copied._thread_lock = threading.RLock()
+            copied._cancellation_event = asyncio.Event()
+            copied._semantic_cache = None
+            copied._validation_level = self._validation_level
+        return copied
+
+    def __deepcopy__(self, memo: Optional[Dict[int, Any]] = None) -> 'GraphState':
+        """Suporte explícito a copy.deepcopy sem copiar locks nativos."""
+
+        if memo is None:
+            memo = {}
+
+        if id(self) in memo:
+            return memo[id(self)]
+
+        copied = self.model_copy(deep=True)
+        memo[id(self)] = copied
+        return copied
+
     def validate_state(self, level: Optional[ValidationLevel] = None) -> bool:
         """
         Valida se o estado está consistente
@@ -246,17 +271,25 @@ class GraphState(BaseModel):
         """Garante que o estado é válido, levantando exceção se não for"""
         if not self.validate_state(level):
             raise ValueError(
-                f"Estado inconsistente detectado (level: {level or self._validation_level})"
+                "Estado inconsistente detectado "
+                f"(level: {level or self._validation_level})"
             )
 
-    @validator('root_id', 'best_node_id')
-    def validate_node_references(cls, v, values):
-        """Validador Pydantic para referências de nós"""
-        if v is not None and 'nodes' in values:
-            nodes = values['nodes']
-            if v not in nodes:
-                raise ValueError(f"Node ID {v} não existe em nodes")
-        return v
+    @field_validator("root_id", "best_node_id")
+    @classmethod
+    def validate_node_references(
+        cls, value: Optional[str], info: ValidationInfo
+    ) -> Optional[str]:
+        """Validador Pydantic para referências de nós."""
+
+        if value is None:
+            return value
+
+        nodes = info.data.get("nodes") if info.data is not None else None
+        if isinstance(nodes, dict) and value not in nodes:
+            raise ValueError(f"Node ID {value} não existe em nodes")
+
+        return value
 
     def is_cancelled(self) -> bool:
         """Verifica se a execução foi cancelada (thread-safe)"""
@@ -292,9 +325,6 @@ class GraphState(BaseModel):
             yield self
         except asyncio.CancelledError:
             self.cancel()
-            raise
-        except Exception as e:
-            # Em caso de erro, mantém o estado atual de cancelamento
             raise
 
     @contextmanager

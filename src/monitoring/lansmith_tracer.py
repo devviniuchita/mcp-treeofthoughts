@@ -7,7 +7,8 @@ from typing import Iterable
 
 from langsmith import Client
 from langsmith import run_helpers
-from models import GraphState
+
+from src.models import GraphState
 
 
 def _read_bool_from_env(var_names: Iterable[str], default: bool = False) -> bool:

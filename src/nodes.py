@@ -7,23 +7,25 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 
-from beam_search import BeamSearch  # Assuming BeamSearch as default
-from bge_reranker import BGEReranker
-from hybrid_evaluator import HybridEvaluator
-from hybrid_evaluator import LLMValueScore
 from langchain_core.output_parsers import JsonOutputParser
-from llm_client import get_chat_llm
-from models import Candidate
-from models import GraphState
-from models import Node
-from models import RunConfig
-from models import RunTask
-from models import ValueScore
-from prompts import FINALIZE_PROMPT
-from prompts import PROPOSE_PROMPT
 from pydantic import BaseModel
 from pydantic import Field
-from semantic_cache import SemanticCache
+
+from src.hybrid_evaluator import HybridEvaluator
+from src.hybrid_evaluator import LLMValueScore
+from src.llm_client import get_chat_llm
+from src.models import Candidate
+from src.models import GraphState
+from src.models import Node
+from src.models import RunConfig
+from src.models import RunTask
+from src.models import ValueScore
+from src.prompts import FINALIZE_PROMPT
+from src.prompts import PROPOSE_PROMPT
+from src.reranker.bge_reranker import BGEReranker
+from src.semantic_cache import SemanticCache
+from src.strategies.beam_search import BeamSearch  # Assuming BeamSearch as default
+from src.strategies.best_first_search import BestFirstSearch
 
 
 # Initialize LLM for proposing thoughts
@@ -56,6 +58,10 @@ def initialize_graph(state: GraphState) -> GraphState:
 
 def propose_thoughts(state: GraphState) -> GraphState:
     """Gera novos pensamentos (candidatos) para os nós na fronteira."""
+    if state.cancellation_event and state.cancellation_event.is_set():
+        print("[PROPOSE] Cancellation requested, stopping.")
+        return state
+
     if not state.frontier:
         print("[PROPOSE] Frontier is empty, cannot propose.")
         return state
@@ -143,6 +149,10 @@ def propose_thoughts(state: GraphState) -> GraphState:
 
 def evaluate_thoughts(state: GraphState) -> GraphState:
     """Avalia os pensamentos recém-gerados na fronteira."""
+    if state.cancellation_event and state.cancellation_event.is_set():
+        print("[EVALUATE] Cancellation requested, stopping.")
+        return state
+
     if not state.frontier:
         print("[EVALUATE] Frontier is empty, nothing to evaluate.")
         return state
@@ -211,13 +221,24 @@ def evaluate_thoughts(state: GraphState) -> GraphState:
 
 def select_and_prune(state: GraphState) -> GraphState:
     """Aplica a estratégia de busca para selecionar e podar nós."""
+    if state.cancellation_event and state.cancellation_event.is_set():
+        print("[SELECT] Cancellation requested, stopping.")
+        return state
+
     if not state.frontier:
         print("[SELECT] Frontier is empty, nothing to select/prune.")
         return state
 
-    # Instantiate the selected strategy (e.g., BeamSearch)
-    # This could be dynamic based on state.config.strategy
-    strategy = BeamSearch(beam_width=state.config.beam_width)
+    strategy_map = {
+        "beam_search": lambda cfg: BeamSearch(beam_width=cfg.beam_width),
+        "best_first_search": lambda cfg: BestFirstSearch(),
+    }
+
+    strategy_factory = strategy_map.get(
+        state.config.strategy or "beam_search",
+        strategy_map["beam_search"],
+    )
+    strategy = strategy_factory(state.config)
 
     # The BeamSearch strategy\'s update_frontier method handles selection and pruning
     state = strategy.update_frontier(

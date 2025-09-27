@@ -17,7 +17,7 @@ from typing import Set
 import faiss
 import numpy as np
 
-from llm_client import get_embeddings
+from src.llm_client import get_embeddings
 
 
 logger = logging.getLogger(__name__)

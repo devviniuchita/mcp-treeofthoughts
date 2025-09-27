@@ -534,12 +534,9 @@ playground-1.mongodb.js
 # -----------------------------------
 # GitHub Actions - Force include
 #! Garante que workflows sejam versionados mesmo com ignore do .github/
-!.github/
-!.github/workflows/
-!.github/workflows/*.yml
-!.github/workflows/*.yaml
 .github/workflows/azure-deploy.yml
 .github/workflows/playwright.yml
 .vercel
 !docs/ci-vercel-check.md
 Tasklist.md
+pyrightconfig.json

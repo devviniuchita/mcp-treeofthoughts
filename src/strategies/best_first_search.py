@@ -1,15 +1,14 @@
-from typing import Any
 from typing import List
 from typing import Optional
 
-from base import SearchStrategy
-from models import GraphState
-from models import Node
+from src.base import SearchStrategy
+from src.models import GraphState
+from src.models import Node
 
 
 class BestFirstSearch(SearchStrategy):
     def __init__(self):
-        pass  # Best-first search typically doesn't need specific parameters like beam_width
+        pass  # Best-first ser. typically dtn pecific parameters like beam_width
 
     def select_nodes_for_expansion(self, state: GraphState) -> List[str]:
         """Seleciona o nó com a maior pontuação na fronteira para expansão."""
@@ -48,7 +47,8 @@ class BestFirstSearch(SearchStrategy):
 
         # Opcional: para manter a fronteira gerenciável, pode-se limitar o tamanho aqui
         # Por exemplo, manter apenas os top N nós por score
-        # state.frontier.sort(key=lambda node_id: state.nodes[node_id].score if state.nodes[node_id].score is not None else -1, reverse=True)
+        # state.frontier.sort(key=lambda node_id: state.nodes[node_id]
+        # .score if state.nodes[node_id].score is not None else -1, reverse=True)
         # state.frontier = state.frontier[:state.config.beam_width] # Reutilizando beam_width como um limite geral, ou adicionar um novo config
 
         return state
