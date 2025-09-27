@@ -1,4 +1,5 @@
 import logging
+import os
 
 from typing import Any
 from typing import List
@@ -8,36 +9,45 @@ from typing import Tuple
 logger = logging.getLogger(__name__)
 
 Reranker: Any | None = None
+RERANKER_AVAILABLE: bool = False
 
-try:
-    from rerankers import Reranker as _RerankerImpl
-
-    Reranker = _RerankerImpl
-
-    RERANKER_AVAILABLE = True
-except ImportError:
-    logger.warning(
-        (
-            "A biblioteca 'rerankers' ou suas dependências (e.g., transformers, "
-            "torch) não estão instaladas. O reranking será desabilitado."
-        )
-    )
-    RERANKER_AVAILABLE = False
-# Captura falhas internas inesperadas sem derrubar o servidor.
-except BaseException as exc:  # noqa: BLE001
-    logger.error(
-        (
-            "Falha inesperada ao inicializar o reranker. "
-            "O reranking será desabilitado."
-        ),
-        exc_info=exc,
-    )
+# Permite desabilitar o reranker via variável de ambiente para ambientes
+# em que não queremos carregar dependências pesadas (ex: cloud).
+if os.getenv("DISABLE_RERANKER", "0") in {"1", "true", "True"}:
+    logger.info("DISABLE_RERANKER is set; reranker will remain disabled.")
     RERANKER_AVAILABLE = False
 
 
 class BGEReranker:
     def __init__(self, model_name: str = "BAAI/bge-reranker-base"):
         self.reranker = None
+        # Lazy import: tenta carregar o reranker apenas quando este objeto for
+        # instanciado. Assim evitamos importar transformers e outras dependências
+        # pesadas durante o startup do servidor.
+        global Reranker, RERANKER_AVAILABLE
+        if not RERANKER_AVAILABLE:
+            try:
+                from rerankers import Reranker as _RerankerImpl
+
+                Reranker = _RerankerImpl
+                RERANKER_AVAILABLE = True
+            except ImportError:
+                logger.warning(
+                    (
+                        "A biblioteca 'rerankers' ou suas dependências (e.g., "
+                        "transformers, torch) não estão instaladas. O reranking "
+                        "será desabilitado."
+                    )
+                )
+            except BaseException as exc:  # noqa: BLE001
+                logger.error(
+                    (
+                        "Falha inesperada ao inicializar o reranker. "
+                        "O reranking será desabilitado."
+                    ),
+                    exc_info=exc,
+                )
+
         if RERANKER_AVAILABLE and Reranker is not None:
             try:
                 self.reranker = Reranker(model_name)
