@@ -19,12 +19,6 @@ from typing import Optional
 from typing import Union
 
 from fastmcp import FastMCP
-
-# Usar apenas o middleware approach sem auth provider customizado
-from fastmcp.server.middleware import Middleware
-from fastmcp.server.middleware import MiddlewareContext
-from mcp import McpError
-from mcp.types import ErrorData
 from pydantic import BaseModel
 
 from src.graph import create_tot_graph
@@ -36,48 +30,9 @@ from src.models import RunTask
 from src.utils.path_mirror import ensure_mirror
 
 
-class TokenAuthMiddleware(Middleware):
-    """Middleware de autenticação simples para tokens Bearer."""
-
-    def __init__(self, expected_token: str):
-        super().__init__()
-        self.expected_token = expected_token
-
-    async def on_request(self, context: MiddlewareContext, call_next):
-        """Valida o token Bearer em todas as requisições."""
-
-        # Pular validação se não há contexto HTTP (ex: transport stdio)
-        if not hasattr(context, 'request') or not context.request:
-            return await call_next(context)
-
-        auth_header = context.request.headers.get("authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
-            print(f"🚫 Missing or invalid Authorization header: {auth_header}")
-            raise McpError(ErrorData(code=-32001, message="Authorization required"))
-
-        token = auth_header.split(" ", 1)[1]
-        if token != self.expected_token:
-            print(
-                f"🚫 Token mismatch - provided: {token[:10]}..., expected: {self.expected_token[:10]}..."
-            )
-            raise McpError(ErrorData(code=-32002, message="Invalid token"))
-
-        print(f"✅ Authorization successful for token: {token[:10]}...")
-        return await call_next(context)
-
-
-# Configurar autenticação se AUTH_TOKEN estiver presente
-middleware = []
-auth_token = os.getenv("AUTH_TOKEN")
-
-if auth_token:
-    middleware.append(TokenAuthMiddleware(expected_token=auth_token))
-    print(f"🔐 TokenAuthMiddleware configurado: length={len(auth_token)} characters")
-else:
-    print("🔓 AUTH_TOKEN não configurado - authentication disabled")
-
-# Inicializar o servidor MCP com middleware se configurado
-mcp = FastMCP("MCP TreeOfThoughts", middleware=middleware)
+# Inicializar o servidor MCP SEM middleware customizado (testar auth nativo)
+mcp = FastMCP("MCP TreeOfThoughts")
+print("� Servidor iniciado SEM TokenAuthMiddleware customizado (teste de auth nativo)")
 
 # Armazenamento em memória para execuções ativas
 active_runs: Dict[str, Dict[str, Any]] = {}
