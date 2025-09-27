@@ -22,18 +22,13 @@ from fastmcp import FastMCP
 from pydantic import BaseModel
 
 
-# Import starlette middleware/responses de forma segura (podem não estar
-# presentes em todos os ambientes de execução). Definimos uma flag para
-# condicionalmente habilitar o AuthorizationMiddleware.
+# Importar auth provider nativo do FastMCP se disponível
 try:
-    from starlette.middleware.base import BaseHTTPMiddleware
-    from starlette.responses import JSONResponse
-
-    STARLETTE_AVAILABLE = True
-except Exception:
-    BaseHTTPMiddleware = None
-    JSONResponse = None
-    STARLETTE_AVAILABLE = False
+    from fastmcp.server.auth import BearerAuthProvider
+    FASTMCP_AUTH_AVAILABLE = True
+except ImportError:
+    BearerAuthProvider = None
+    FASTMCP_AUTH_AVAILABLE = False
 
 from src.graph import create_tot_graph
 
@@ -44,8 +39,21 @@ from src.models import RunTask
 from src.utils.path_mirror import ensure_mirror
 
 
-# Inicializar o servidor MCP
-mcp = FastMCP("MCP TreeOfThoughts")
+# Configurar autenticação se AUTH_TOKEN estiver presente
+auth_provider = None
+auth_token = os.getenv("AUTH_TOKEN")
+
+if auth_token and FASTMCP_AUTH_AVAILABLE:
+    # Usar o BearerAuthProvider nativo do FastMCP
+    auth_provider = BearerAuthProvider(token=auth_token)
+    print(f"🔐 BearerAuthProvider configurado: length={len(auth_token)} characters")
+elif auth_token and not FASTMCP_AUTH_AVAILABLE:
+    print("⚠️ AUTH_TOKEN configurado mas BearerAuthProvider não disponível")
+else:
+    print("🔓 AUTH_TOKEN não configurado - authentication disabled")
+
+# Inicializar o servidor MCP com auth se configurado
+mcp = FastMCP("MCP TreeOfThoughts", auth=auth_provider)
 
 # Armazenamento em memória para execuções ativas
 active_runs: Dict[str, Dict[str, Any]] = {}
@@ -557,99 +565,6 @@ mcp.tool()(listar_execucoes)
 mcp.resource("config://defaults")(obter_configuracao_padrao)
 mcp.resource("info://sobre")(obter_informacoes_sistema)
 
-
-if STARLETTE_AVAILABLE:
-
-    class AuthorizationMiddleware(BaseHTTPMiddleware):
-        """Middleware simples que valida o header Authorization: Bearer <token>.
-
-        O token esperado é lido da variável de ambiente AUTH_TOKEN. Defina essa
-        variável como secret no painel FastMCP Cloud (sem aspas) para proteger o
-        acesso ao servidor MCP.
-        """
-
-        async def dispatch(self, request, call_next):
-            expected = os.getenv("AUTH_TOKEN")
-            # If no token configured, allow all requests (safe default for internal setups).
-            if not expected:
-                print("🔓 No AUTH_TOKEN configured - allowing request")
-                return await call_next(request)
-
-            auth = request.headers.get("authorization") or request.headers.get(
-                "Authorization"
-            )
-            if not auth or not auth.startswith("Bearer "):
-                print(f"🚫 Missing or invalid Authorization header: {auth}")
-                return JSONResponse({"error": "missing_authorization"}, status_code=401)
-
-            token = auth.split(" ", 1)[1]
-            if token != expected:
-                print(
-                    f"🚫 Token mismatch - provided: {token[:10]}..., expected: {expected[:10]}..."
-                )
-                return JSONResponse({"error": "invalid_token"}, status_code=403)
-
-            print(f"✅ Authorization successful for token: {token[:10]}...")
-            return await call_next(request)
-
-else:
-    AuthorizationMiddleware = None
-    print(
-        "Warning: starlette not available in this environment; AuthorizationMiddleware disabled."
-    )
-
-# Add debug logging for AUTH_TOKEN configuration
-auth_token_env = os.getenv("AUTH_TOKEN")
-if auth_token_env:
-    print(f"🔐 AUTH_TOKEN configured: length={len(auth_token_env)} characters")
-else:
-    print("⚠️ AUTH_TOKEN not configured - authentication disabled")
-
-# After registering tools but before running the server, attempt to attach middleware to the ASGI app
-try:
-    # FastMCP exposes an ASGI application on common attributes depending on version
-    asgi_app = None
-    for attr in ("app", "fastapi_app", "asgi_app"):
-        if hasattr(mcp, attr):
-            asgi_app = getattr(mcp, attr)
-            print(f"📍 Found ASGI app attribute: {attr} = {type(asgi_app)}")
-            break
-
-    if asgi_app is not None:
-        # The ASGI app should support add_middleware (Starlette/FastAPI)
-        try:
-            if STARLETTE_AVAILABLE and AuthorizationMiddleware is not None:
-                asgi_app.add_middleware(AuthorizationMiddleware)
-                print("✅ AuthorizationMiddleware attached to ASGI app successfully")
-            else:
-                print(
-                    "❌ Starlette not available or AuthorizationMiddleware is None - cannot attach"
-                )
-        except Exception as inner_e:
-            print(f"⚠️ Failed to attach to main app: {inner_e}")
-            # Some wrappers may expose a Starlette app under .app or require different API.
-            # In that case, try to access the underlying Starlette/FastAPI instance.
-            if hasattr(asgi_app, "app") and hasattr(asgi_app.app, "add_middleware"):
-                try:
-                    if STARLETTE_AVAILABLE and AuthorizationMiddleware is not None:
-                        asgi_app.app.add_middleware(AuthorizationMiddleware)
-                        print(
-                            "✅ AuthorizationMiddleware attached to inner app successfully"
-                        )
-                    else:
-                        print(
-                            "❌ Starlette not available or AuthorizationMiddleware is None - cannot attach to inner app"
-                        )
-                except Exception as inner_inner_e:
-                    print(f"❌ Failed to attach to inner app: {inner_inner_e}")
-            else:
-                print(
-                    "❌ Could not attach AuthorizationMiddleware automatically; manual attachment required"
-                )
-    else:
-        print("⚠️ FastMCP ASGI app not found; AuthorizationMiddleware not attached")
-except Exception as e:
-    print(f"❌ Error while attempting to attach AuthorizationMiddleware: {e}")
 
 if __name__ == "__main__":
     # Configurar variáveis de ambiente se necessário
