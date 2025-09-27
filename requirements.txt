@@ -1,15 +1,32 @@
+# FastMCP e servidor web
 fastmcp>=0.4.0
+fastapi>=0.104.0
 uvicorn[standard]==0.35.0
+
+# LangChain ecosystem
 langchain-google-genai>=1.0.0
 langchain-core>=0.1.0
 langgraph>=0.0.40
 langsmith==0.4.27
+
+# Core dependencies
 pydantic>=2.5.0
+python-dotenv>=1.0.0
+
+# AI/ML libraries
 rerankers>=0.4.0
-Instructor>=0.4.0
+instructor>=0.4.0
 faiss-cpu>=1.7.0
 numpy>=1.24.0
-python-dotenv>=1.0.0
-psutil>=5.9.0
-httpx==0.28.1
 scikit-learn==1.7.0
+
+# HTTP client
+httpx>=0.28.0,<0.29.0
+
+# System monitoring
+psutil>=5.9.0
+
+# Optional: adicione estas se necessário para seu projeto
+# openai>=1.0.0  # Se usar OpenAI
+# anthropic>=0.25.0  # Se usar Anthropic
+# tiktoken>=0.5.0  # Para contagem de tokens

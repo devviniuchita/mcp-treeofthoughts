@@ -19,23 +19,13 @@ from typing import Optional
 from typing import Union
 
 from fastmcp import FastMCP
-from pydantic import BaseModel
 
-
-# Importar auth provider nativo do FastMCP se disponível
-try:
-    from fastmcp.server.auth import BearerAuthProvider
-
-    FASTMCP_AUTH_AVAILABLE = True
-except ImportError:
-    BearerAuthProvider = None
-    FASTMCP_AUTH_AVAILABLE = False
-
-# Auth provider simples para tokens não-JWT
+# Usar apenas o middleware approach sem auth provider customizado
 from fastmcp.server.middleware import Middleware
 from fastmcp.server.middleware import MiddlewareContext
 from mcp import McpError
 from mcp.types import ErrorData
+from pydantic import BaseModel
 
 from src.graph import create_tot_graph
 
@@ -46,27 +36,16 @@ from src.models import RunTask
 from src.utils.path_mirror import ensure_mirror
 
 
-class SimpleTokenAuthProvider:
-    """Auth provider simples que valida tokens string contra AUTH_TOKEN env var."""
-
-    def __init__(self, token: str):
-        self.expected_token = token
-
-    def get_middleware(self) -> "SimpleTokenAuthMiddleware":
-        """Retorna o middleware de autenticação."""
-        return SimpleTokenAuthMiddleware(self.expected_token)
-
-
-class SimpleTokenAuthMiddleware(Middleware):
-    """Middleware que valida Authorization: Bearer <token>."""
+class AuthMiddleware(Middleware):
+    """Middleware de autenticação simples para tokens Bearer."""
 
     def __init__(self, expected_token: str):
         self.expected_token = expected_token
 
     async def on_request(self, context: MiddlewareContext, call_next):
-        """Validate Bearer token in all requests."""
+        """Valida o token Bearer em todas as requisições."""
 
-        # Skip validation if no HTTP context available (e.g., stdio transport)
+        # Pular validação se não há contexto HTTP (ex: transport stdio)
         if not hasattr(context, 'request') or not context.request:
             return await call_next(context)
 
@@ -87,20 +66,17 @@ class SimpleTokenAuthMiddleware(Middleware):
 
 
 # Configurar autenticação se AUTH_TOKEN estiver presente
-auth_provider = None
+middleware = []
 auth_token = os.getenv("AUTH_TOKEN")
 
 if auth_token:
-    # Usar auth provider simples que aceita tokens UUID/string
-    auth_provider = SimpleTokenAuthProvider(token=auth_token)
-    print(
-        f"🔐 SimpleTokenAuthProvider configurado: length={len(auth_token)} characters"
-    )
+    middleware.append(AuthMiddleware(token=auth_token))
+    print(f"🔐 AuthMiddleware configurado: length={len(auth_token)} characters")
 else:
     print("🔓 AUTH_TOKEN não configurado - authentication disabled")
 
-# Inicializar o servidor MCP com auth se configurado
-mcp = FastMCP("MCP TreeOfThoughts", auth=auth_provider)
+# Inicializar o servidor MCP com middleware se configurado
+mcp = FastMCP("MCP TreeOfThoughts", middleware=middleware)
 
 # Armazenamento em memória para execuções ativas
 active_runs: Dict[str, Dict[str, Any]] = {}
