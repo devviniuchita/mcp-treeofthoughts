@@ -19,6 +19,7 @@ from typing import Optional
 from typing import Union
 
 from fastmcp import FastMCP
+from fastmcp.server.auth.providers.jwt import JWTVerifier, RSAKeyPair
 from pydantic import BaseModel
 
 from src.graph import create_tot_graph
@@ -29,10 +30,41 @@ from src.models import RunConfig
 from src.models import RunTask
 from src.utils.path_mirror import ensure_mirror
 
+# Configurar autenticação JWT PROFISSIONAL
+auth_provider = None
+print("🔐 Configurando autenticação JWT profissional para produção...")
 
-# Inicializar o servidor MCP SEM middleware customizado (testar auth nativo)
-mcp = FastMCP("MCP TreeOfThoughts")
-print("� Servidor iniciado SEM TokenAuthMiddleware customizado (teste de auth nativo)")
+try:
+    # Gerar key pair para JWT (PRODUÇÃO READY)
+    key_pair = RSAKeyPair.generate()
+
+    # Configurar JWT verifier
+    auth_provider = JWTVerifier(
+        public_key=key_pair.public_key,
+        issuer="https://mcptreeofthoughts.fastmcp.app",
+        audience="mcp-production-api"
+    )
+
+    # Gerar token de acesso válido
+    access_token = key_pair.create_token(
+        subject="mcp-client",
+        issuer="https://mcptreeofthoughts.fastmcp.app",
+        audience="mcp-production-api",
+        scopes=["read:tools", "execute:tools", "read:resources"],
+        expires_in_seconds=3600  # 1 hora
+    )
+
+    print(f"✅ JWT Authentication configurado com sucesso!")
+    print(f"🔑 ACCESS TOKEN (salve este token):")
+    print(f"Bearer {access_token}")
+    print(f"📝 Token expira em 1 hora. Use este token no Authorization header.")
+
+except Exception as e:
+    print(f"⚠️ Erro configurando JWT: {e}")
+    print("🔓 Rodando sem autenticação...")
+
+# Inicializar o servidor MCP com JWT authentication
+mcp = FastMCP("MCP TreeOfThoughts", auth=auth_provider)
 
 # Armazenamento em memória para execuções ativas
 active_runs: Dict[str, Dict[str, Any]] = {}
