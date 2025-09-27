@@ -28,10 +28,16 @@ from src.strategies.beam_search import BeamSearch  # Assuming BeamSearch as defa
 from src.strategies.best_first_search import BestFirstSearch
 
 
-# Initialize LLM for proposing thoughts
-propose_llm = get_chat_llm(
-    model="gemini-2.5-flash", temperature=0.7
-)  # Will be updated to use state.config.propose_temp later
+# Initialize LLM for proposing thoughts lazily — evita chamadas durante import
+_propose_llm = None
+
+
+def _get_propose_llm():
+    global _propose_llm
+    if _propose_llm is None:
+        _propose_llm = get_chat_llm(model="gemini-2.5-flash", temperature=0.7)
+    return _propose_llm
+
 
 # Initialize Semantic Cache (global or passed via state)
 # semantic_cache will be initialized in initialize_graph
@@ -101,7 +107,9 @@ def propose_thoughts(state: GraphState) -> GraphState:
                 constraints=state.task.constraints,
             )
             try:
-                raw_output = propose_llm.invoke(prompt).content
+                # Usar LLM lazy: caso não configurado, o llm_client retornará um DummyLLM
+                llm = _get_propose_llm()
+                raw_output = llm.invoke(prompt).content
                 # Extract JSON from markdown code block if present
                 if raw_output.strip().startswith(
                     "```json"
