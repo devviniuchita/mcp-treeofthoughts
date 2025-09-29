@@ -45,23 +45,37 @@ def get_auth_provider():
     auth_token = os.getenv("AUTH_TOKEN")
     fastmcp_server_auth = os.getenv("FASTMCP_SERVER_AUTH")
 
-    # Priority 1: FastMCP Cloud environment token using StaticTokenVerifier
+    # Priority 1: FastMCP Cloud environment token using BearerAuthProvider (stateless)
     if mcp_auth_token:
-        from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
-
-        print("🌩️ Configurando autenticação para FastMCP Cloud com MCP_AUTH_TOKEN")
-        return StaticTokenVerifier(
-            tokens={mcp_auth_token: {"client_id": "fastmcp-cloud", "scopes": ["*"]}}
-        )
+        try:
+            from fastmcp.server.auth.providers.bearer import BearerAuthProvider
+            print("🌩️ Configurando BearerAuthProvider para FastMCP Cloud com MCP_AUTH_TOKEN")
+            return BearerAuthProvider(api_keys=[mcp_auth_token])
+        except ImportError:
+            # Fallback para JWT se BearerAuthProvider não disponível
+            from fastmcp.server.auth.providers.jwt import JWTVerifier
+            print("🌩️ Usando JWTVerifier como fallback para FastMCP Cloud")
+            return JWTVerifier(
+                public_key=None,  # Will use JWKS if needed
+                issuer="fastmcp-cloud",
+                audience="mcp-treeofthoughts"
+            )
 
     # Priority 2: Generic AUTH_TOKEN for cloud deployments
     if auth_token:
-        from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
-
-        print("🌩️ Configurando autenticação para FastMCP Cloud com AUTH_TOKEN")
-        return StaticTokenVerifier(
-            tokens={auth_token: {"client_id": "fastmcp-cloud", "scopes": ["*"]}}
-        )
+        try:
+            from fastmcp.server.auth.providers.bearer import BearerAuthProvider
+            print("🌩️ Configurando BearerAuthProvider para FastMCP Cloud com AUTH_TOKEN")
+            return BearerAuthProvider(api_keys=[auth_token])
+        except ImportError:
+            # Fallback para JWT se BearerAuthProvider não disponível
+            from fastmcp.server.auth.providers.jwt import JWTVerifier
+            print("🌩️ Usando JWTVerifier como fallback para AUTH_TOKEN")
+            return JWTVerifier(
+                public_key=None,
+                issuer="fastmcp-cloud",
+                audience="mcp-treeofthoughts"
+            )
 
     # Priority 3: Automatic FastMCP provider configuration
     if fastmcp_server_auth:
