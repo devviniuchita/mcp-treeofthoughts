@@ -80,15 +80,18 @@ class JWTManager:
             ) from e
 
     def _save_token_to_file(self) -> None:
-        """Save current token to file for external access."""
+        """Save current token to file for external access (cloud-compatible)."""
         if not self.access_token:
             return
 
         try:
             with open(TOKEN_FILE_PATH, "w", encoding="utf-8") as f:
                 f.write(self.access_token)
+            logger.info("🔑 ACCESS TOKEN gerado e salvo.")
         except OSError as e:
-            logger.warning(f"Não foi possível salvar token no arquivo: {e}")
+            # Expected in read-only environments like FastMCP Cloud
+            logger.info("🔑 ACCESS TOKEN gerado (ambiente read-only detectado).")
+            logger.debug(f"Detalhes: {e}")
 
     def generate_new_token(self) -> str:
         """Generate a new JWT token and update internal state."""

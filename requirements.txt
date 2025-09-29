@@ -1,30 +1,46 @@
-# FastMCP e servidor web
-fastmcp>=0.4.0
-fastapi>=0.104.0
-uvicorn[standard]==0.35.0
+# FastMCP e servidor web - VERSÕES MAIS RECENTES
+fastmcp>=2.12.4
+fastapi>=0.118.0
+uvicorn[standard]>=0.37.0
 
-# LangChain ecosystem
-langchain-google-genai>=1.0.0
-langchain-core>=0.1.0
-langgraph>=0.0.40
-langsmith==0.4.27
+# LangChain ecosystem - ATUALIZADAS
+langchain-google-genai>=2.1.12
+langchain-core>=0.3.30
+langgraph>=0.6.8
+langsmith>=0.4.31
 
-# Core dependencies
-pydantic>=2.5.0
-python-dotenv>=1.0.0
+# Core dependencies - ATUALIZADAS  
+pydantic>=2.11.9
+pydantic-core>=2.39.0
+pydantic-settings>=2.11.0
+python-dotenv>=1.1.1
 
-# AI/ML libraries
+# AI/ML libraries - ATUALIZADAS
 rerankers>=0.4.0
 instructor>=0.4.0
-faiss-cpu>=1.7.0
-numpy>=1.24.0
-scikit-learn==1.7.0
+faiss-cpu>=1.7.4
+numpy>=2.3.3
+scikit-learn>=1.7.2
 
-# HTTP client
-httpx>=0.28.0,<0.29.0
+# HTTP client - ATUALIZADA
+httpx>=0.28.1
 
-# System monitoring
-psutil>=5.9.0
+# System monitoring - ATUALIZADA
+psutil>=7.1.0
+
+# Authentication & Security - NOVAS DEPENDÊNCIAS
+authlib>=1.6.4
+cryptography>=46.0.1
+PyJWT>=2.8.0
+
+# FastMCP Dependencies - GARANTIR COMPATIBILIDADE
+mcp>=1.15.0
+starlette>=0.48.0
+anyio>=4.11.0
+
+# Async & Networking - ATUALIZADAS
+aiohttp>=3.12.5
+certifi>=2025.8.3
 
 # Optional: adicione estas se necessário para seu projeto
 # openai>=1.0.0  # Se usar OpenAI
