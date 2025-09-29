@@ -38,27 +38,18 @@ execution_manager = ExecutionManager()
 # Initialize FastMCP server with environment-aware authentication
 
 
-def get_auth_provider():
-    """Configure authentication based on environment (local vs FastMCP Cloud)."""
-    # Check for FastMCP Cloud environment variables
+def should_configure_auth():
+    """Determine if we should configure authentication or let FastMCP Cloud handle it."""
     mcp_auth_token = os.getenv("MCP_AUTH_TOKEN")
-    auth_token = os.getenv("AUTH_TOKEN")
-    fastmcp_server_auth = os.getenv("FASTMCP_SERVER_AUTH")
 
-    # Priority 1: FastMCP Cloud environment token using custom TokenVerifier
     if mcp_auth_token:
-        from fastmcp.server.auth.auth import TokenVerifier, AccessToken
-
-        class CloudTokenVerifier(TokenVerifier):
-            """Token verifier for FastMCP Cloud - stateless and compatible with serverless."""
-
-            def __init__(self, valid_token: str):
-                super().__init__()
-                self.valid_token = valid_token
-
-            async def verify_token(self, token: str) -> AccessToken | None:
-                """Verify token against environment variable - stateless."""
-                if token == self.valid_token:
+        # FastMCP Cloud environment - let it handle authentication automatically
+        print(f"🌩️ FastMCP Cloud detected with MCP_AUTH_TOKEN - using automatic authentication")
+        return False
+    else:
+        # Local environment - use custom JWT
+        print("🏠 Local environment detected - using custom JWT authentication")
+        return True
                     return AccessToken(
                         token=token,
                         client_id="fastmcp-cloud",
@@ -68,44 +59,13 @@ def get_auth_provider():
                     )
                 return None
 
-        print("🌩️ Configurando CloudTokenVerifier para FastMCP Cloud com MCP_AUTH_TOKEN")
-        return CloudTokenVerifier(mcp_auth_token)
-
-    # Priority 2: Generic AUTH_TOKEN for cloud deployments
-    if auth_token:
-        from fastmcp.server.auth.auth import TokenVerifier, AccessToken
-
-        class CloudTokenVerifier(TokenVerifier):
-            """Token verifier for FastMCP Cloud - stateless and compatible with serverless."""
-
-            def __init__(self, valid_token: str):
-                super().__init__()
-                self.valid_token = valid_token
-
-            async def verify_token(self, token: str) -> AccessToken | None:
-                """Verify token against environment variable - stateless."""
-                if token == self.valid_token:
-                    return AccessToken(
-                        token=token,
-                        client_id="fastmcp-cloud",
-                        scopes=["*"],
-                        expires_at=None,  # No expiration
-                        claims={"sub": "fastmcp-cloud", "aud": "mcp-treeofthoughts"}
-                    )
-                return None
-
-        print("🌩️ Configurando CloudTokenVerifier para FastMCP Cloud com AUTH_TOKEN")
-        return CloudTokenVerifier(auth_token)    # Priority 3: Automatic FastMCP provider configuration
-    if fastmcp_server_auth:
-        print("🌩️ Usando configuração automática FastMCP:", fastmcp_server_auth)
-        return None  # Let FastMCP auto-configure from environment
-
-    # Priority 4: Local development with custom JWT
-    print("🏠 Usando autenticação JWT customizada para ambiente local")
-    return jwt_manager.get_auth_provider()
-
-
-mcp = FastMCP("MCP TreeOfThoughts", auth=get_auth_provider())
+# Configure FastMCP server based on environment
+if should_configure_auth():
+    # Local environment - use custom JWT authentication
+    mcp = FastMCP("MCP TreeOfThoughts", auth=jwt_manager.get_auth_provider())
+else:
+    # FastMCP Cloud environment - let automatic authentication handle MCP_AUTH_TOKEN
+    mcp = FastMCP("MCP TreeOfThoughts")
 # Garantir espelhos de arquivos esperados pelos testes de integração
 ensure_mirror(
     [
