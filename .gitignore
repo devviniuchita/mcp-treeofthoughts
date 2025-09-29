@@ -540,3 +540,12 @@ playground-1.mongodb.js
 !docs/ci-vercel-check.md
 Tasklist.md
 pyrightconfig.json
+scripts/analyze_jwt.py
+scripts/debug_auth.py
+scripts/test_jwt_correct.py
+scripts/__init__.py
+.gitignore
+scripts/generate_test_token.py
+scripts/get_fresh_token.py
+.gitignore
+scripts/extract_token.py
