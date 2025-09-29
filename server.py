@@ -49,16 +49,22 @@ def get_auth_provider():
     # Priority 1: FastMCP Cloud automatic authentication (SERVERLESS COMPATIBLE)
     if fastmcp_cloud_env or any([mcp_auth_token, auth_token, fastmcp_server_auth]):
         print("🌩️ FastMCP Cloud detectado - usando autenticação automática (serverless)")
-        print(f"🔍 Variáveis detectadas: MCP_AUTH_TOKEN={'✓' if mcp_auth_token else '✗'}")
+        print(
+            f"🔍 Variáveis detectadas: MCP_AUTH_TOKEN={'✓' if mcp_auth_token else '✗'}"
+        )
         print(f"🔍                      AUTH_TOKEN={'✓' if auth_token else '✗'}")
-        print(f"🔍                      FASTMCP_SERVER_AUTH={'✓' if fastmcp_server_auth else '✗'}")
+        print(
+            f"🔍                      FASTMCP_SERVER_AUTH={'✓' if fastmcp_server_auth else '✗'}"
+        )
 
         # FastMCP Cloud gerencia autenticação automaticamente via middleware
         # Retornar None permite que FastMCP Cloud configure autenticação
         return None
 
     # Priority 2: Local development with enterprise JWT (PRESERVADO)
-    print("🏠 Ambiente local detectado - usando autenticação JWT enterprise customizada")
+    print(
+        "🏠 Ambiente local detectado - usando autenticação JWT enterprise customizada"
+    )
     print("🔐 Inicializando sistema JWT com RSA KeyPair profissional...")
     return jwt_manager.get_auth_provider()
 
