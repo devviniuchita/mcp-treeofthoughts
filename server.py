@@ -35,10 +35,45 @@ from src.utils.path_mirror import ensure_mirror
 jwt_manager = JWTManager()
 execution_manager = ExecutionManager()
 
-# Initialize FastMCP server with JWT authentication
-mcp = FastMCP("MCP TreeOfThoughts", auth=jwt_manager.get_auth_provider())
+# Initialize FastMCP server with environment-aware authentication
 
 
+def get_auth_provider():
+    """Configure authentication based on environment (local vs FastMCP Cloud)."""
+    # Check for FastMCP Cloud environment variables
+    mcp_auth_token = os.getenv("MCP_AUTH_TOKEN")
+    auth_token = os.getenv("AUTH_TOKEN")
+    fastmcp_server_auth = os.getenv("FASTMCP_SERVER_AUTH")
+
+    # Priority 1: FastMCP Cloud environment token using StaticTokenVerifier
+    if mcp_auth_token:
+        from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
+
+        print("🌩️ Configurando autenticação para FastMCP Cloud com MCP_AUTH_TOKEN")
+        return StaticTokenVerifier(
+            tokens={mcp_auth_token: {"client_id": "fastmcp-cloud", "scopes": ["*"]}}
+        )
+
+    # Priority 2: Generic AUTH_TOKEN for cloud deployments
+    if auth_token:
+        from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
+
+        print("🌩️ Configurando autenticação para FastMCP Cloud com AUTH_TOKEN")
+        return StaticTokenVerifier(
+            tokens={auth_token: {"client_id": "fastmcp-cloud", "scopes": ["*"]}}
+        )
+
+    # Priority 3: Automatic FastMCP provider configuration
+    if fastmcp_server_auth:
+        print("🌩️ Usando configuração automática FastMCP:", fastmcp_server_auth)
+        return None  # Let FastMCP auto-configure from environment
+
+    # Priority 4: Local development with custom JWT
+    print("🏠 Usando autenticação JWT customizada para ambiente local")
+    return jwt_manager.get_auth_provider()
+
+
+mcp = FastMCP("MCP TreeOfThoughts", auth=get_auth_provider())
 # Garantir espelhos de arquivos esperados pelos testes de integração
 ensure_mirror(
     [

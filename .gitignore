@@ -547,5 +547,7 @@ scripts/__init__.py
 .gitignore
 scripts/generate_test_token.py
 scripts/get_fresh_token.py
-.gitignore
 scripts/extract_token.py
+current_token.txt
+FASTMCP_CLOUD_SETUP.md
+current_token.txt
