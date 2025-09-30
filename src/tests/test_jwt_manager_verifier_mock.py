@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import jwt as pyjwt
 
-from src.config.constants import JWT_AUDIENCE, JWT_ISSUER
+from src.config.constants import JWT_AUDIENCE
+from src.config.constants import JWT_ISSUER
 from src.jwt_manager import JWTManager
 
 

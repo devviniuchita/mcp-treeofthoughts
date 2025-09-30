@@ -2,23 +2,17 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-from src.config.constants import TOKEN_FILE_PATH
 from src.jwt_manager import JWTManager
 
 
 def get_or_create_token() -> str:
     """Recupera o token atual persistido ou gera um novo via JWTManager."""
-    token_path = Path(TOKEN_FILE_PATH)
-
-    if token_path.exists():
-        existing = token_path.read_text(encoding="utf-8").strip()
-        if existing:
-            return existing
-
+    # Use o JWTManager atualizado com cache thread-safe e auto-refresh
     manager = JWTManager()
-    return manager.get_current_token()
+
+    # get_or_create_token() já implementa cache inteligente e persistência
+    # Não precisamos verificar TOKEN_FILE_PATH manualmente
+    return manager.get_or_create_token()
 
 
 def main() -> None:

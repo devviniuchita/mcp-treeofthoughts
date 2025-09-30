@@ -1,10 +1,14 @@
 """Servidor mínimo para TestSprite validation."""
 
-from flask import Flask
-from flask import jsonify
 import os
 
-from src.exceptions import ConfigurationError, TokenGenerationError
+from flask import Flask
+from flask import jsonify
+from flask import make_response
+
+from src.exceptions import ConfigurationError
+from src.exceptions import TokenGenerationError
+
 
 app = Flask(__name__)
 
@@ -66,6 +70,54 @@ def test_exceptions():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/.well-known/jwks.json', methods=['GET'])
+def jwks_endpoint():
+    """JWKS endpoint for public key discovery (RFC 7517)."""
+    try:
+        from src.jwt_manager import JWTManager
+
+        jwt_manager = JWTManager()
+
+        # Auto-cleanup expired keys
+        jwt_manager.cleanup_expired_keys()
+
+        # Get JWKS with current + previous keys (if in grace period)
+        jwks_response = jwt_manager.get_public_jwks()
+
+        # Create response with proper cache headers
+        response = make_response(jsonify(jwks_response))
+        response.headers['Content-Type'] = 'application/json'
+        response.headers['Cache-Control'] = 'public, max-age=3600, s-maxage=3600'
+        response.headers['Access-Control-Allow-Origin'] = '*'  # CORS for client access
+
+        return response
+
+    except (ConfigurationError, TokenGenerationError, OSError) as e:
+        # Known error cases for JWT initialization & JWK generation
+        return (
+            jsonify(
+                {
+                    "error": "jwks_unavailable",
+                    "message": "Unable to generate JWKS",
+                    "details": str(e),
+                }
+            ),
+            500,
+        )
+    except Exception as e:
+        # Unexpected errors
+        return (
+            jsonify(
+                {
+                    "error": "internal_server_error",
+                    "message": "Internal server error generating JWKS",
+                    "details": str(e),
+                }
+            ),
+            500,
+        )
+
+
 @app.route('/api/jwt', methods=['GET'])
 def test_jwt():
     """Test JWT manager."""
@@ -83,6 +135,7 @@ def test_jwt():
                 "rsa_keypair": jwt_manager.key_pair is not None,
                 "auth_provider": jwt_manager.auth_provider is not None,
                 "enterprise_security": True,
+                "jwks_available": True,  # Indicate JWKS endpoint availability
             }
         )
     except (ConfigurationError, TokenGenerationError, OSError) as e:
@@ -118,6 +171,29 @@ if __name__ == '__main__':
     print("🚀 MCP TreeOfThoughts Enterprise - TestSprite Validation Server")
     print("🔐 Enterprise Architecture Validation")
     print("📡 Starting on port 5173...")
+
+    # Production environment checks
+    private_key_path = os.getenv("PRIVATE_KEY_PATH")
+    is_production = os.getenv("ENV", "").lower() == "production"
+
+    if is_production:
+        if not private_key_path:
+            print("❌ PRODUCTION ERROR: PRIVATE_KEY_PATH environment variable required")
+            exit(1)
+        elif not os.path.exists(private_key_path):
+            print(
+                f"❌ PRODUCTION ERROR: Private key file not found: {private_key_path}"
+            )
+            exit(1)
+        else:
+            print(f"✅ Production mode: Using private key from {private_key_path}")
+    else:
+        if private_key_path:
+            print(f"🔧 Development mode: Will use/create key at {private_key_path}")
+        else:
+            print("🔧 Development mode: Will generate ephemeral RSA key pair")
+
+    print("🔑 JWKS endpoint available at: /.well-known/jwks.json")
 
     # Allow overriding bind address for debugging environments where
     # loopback may not be reachable from other shells. Default to 0.0.0.0
