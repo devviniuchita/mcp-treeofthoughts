@@ -1,15 +1,10 @@
 """Servidor mínimo para TestSprite validation."""
 
-import os
-import sys
-
 from flask import Flask
 from flask import jsonify
+import os
 
-
-# Add project root to path
-project_root = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, project_root)
+from src.exceptions import ConfigurationError, TokenGenerationError
 
 app = Flask(__name__)
 
@@ -43,7 +38,8 @@ def test_constants():
                 "constants_loaded": True,
             }
         )
-    except Exception as e:
+    except (ImportError, AttributeError) as e:
+        # Missing constants or attributes
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -51,9 +47,7 @@ def test_constants():
 def test_exceptions():
     """Test exception classes."""
     try:
-        from src.exceptions import ConfigurationError
-
-        # Test exception hierarchy
+        # Test exception hierarchy using project exception classes
         config_error = ConfigurationError("Test error", {"test": True})
 
         return jsonify(
@@ -65,7 +59,10 @@ def test_exceptions():
                 "enterprise_patterns": True,
             }
         )
-    except Exception as e:
+    except (ImportError, NameError, ConfigurationError) as e:
+        # ImportError: src.exceptions may be missing in test env
+        # NameError: symbol not found during runtime
+        # ConfigurationError: project-specific initialization problems
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -88,7 +85,8 @@ def test_jwt():
                 "enterprise_security": True,
             }
         )
-    except Exception as e:
+    except (ConfigurationError, TokenGenerationError, OSError) as e:
+        # Known error cases for JWT initialization & token generation
         return jsonify({"success": False, "error": str(e)}), 500
 
 
