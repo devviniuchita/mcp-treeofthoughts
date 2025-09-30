@@ -23,11 +23,13 @@ class EnterpriseOAuth2Client:
         self.session = requests.Session()
 
         # Enterprise security headers
-        self.session.headers.update({
-            "User-Agent": "EnterpriseOAuth2Client/2.0",
-            "Accept": "application/json",
-            "Cache-Control": "no-cache"
-        })
+        self.session.headers.update(
+            {
+                "User-Agent": "EnterpriseOAuth2Client/2.0",
+                "Accept": "application/json",
+                "Cache-Control": "no-cache",
+            }
+        )
 
     def discover_endpoints(self):
         """Descobre endpoints OAuth do servidor."""

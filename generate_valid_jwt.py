@@ -8,7 +8,8 @@ import secrets
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
-from typing import Dict, Optional
+from typing import Dict
+from typing import Optional
 
 import jwt
 
@@ -17,7 +18,9 @@ class EnterpriseJWTGenerator:
     """Enterprise-grade JWT generator seguindo RFC 7519 e security best practices."""
 
     def __init__(self, secret_key: Optional[str] = None):
-        self.secret_key = secret_key or os.getenv("MCP_AUTH_TOKEN", "mcp_treeofthoughts_2025")
+        self.secret_key = secret_key or os.getenv(
+            "MCP_AUTH_TOKEN", "mcp_treeofthoughts_2025"
+        )
         self.algorithm = "HS256"
 
     def generate_production_token(
@@ -26,7 +29,7 @@ class EnterpriseJWTGenerator:
         audience: str = "mcptreeofthoughts.fastmcp.app",
         issuer: str = "fastmcp-cloud-enterprise",
         expires_days: int = 30,
-        custom_claims: Optional[Dict] = None
+        custom_claims: Optional[Dict] = None,
     ) -> tuple[str, Dict]:
         """Gera JWT token enterprise com security compliance."""
 
@@ -42,16 +45,14 @@ class EnterpriseJWTGenerator:
             "exp": int((now + timedelta(days=expires_days)).timestamp()),
             "nbf": int(now.timestamp()),  # Not before
             "jti": secrets.token_urlsafe(16),  # JWT ID (unique)
-
             # Public Claims
             "scope": "mcp:full mcp:admin mcp:read mcp:write",
             "client_id": "mcp-treeofthoughts-enterprise",
             "token_type": "access_token",
-
             # Private Claims (Custom)
             "enterprise": True,
             "version": "2.0",
-            "security_level": "production"
+            "security_level": "production",
         }
 
         # Merge custom claims se fornecidos
@@ -75,8 +76,8 @@ class EnterpriseJWTGenerator:
                     "verify_exp": True,
                     "verify_nbf": True,
                     "verify_iat": True,
-                    "require": ["exp", "iat", "sub"]
-                }
+                    "require": ["exp", "iat", "sub"],
+                },
             )
             return {"valid": True, "payload": payload}
         except jwt.PyJWTError as e:
