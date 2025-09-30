@@ -52,8 +52,6 @@ def test_exceptions():
     """Test exception classes."""
     try:
         from src.exceptions import ConfigurationError
-        from src.exceptions import ExecutionNotFoundError
-        from src.exceptions import ValidationError
 
         # Test exception hierarchy
         config_error = ConfigurationError("Test error", {"test": True})
@@ -123,4 +121,10 @@ if __name__ == '__main__':
     print("🔐 Enterprise Architecture Validation")
     print("📡 Starting on port 5173...")
 
-    app.run(host='127.0.0.1', port=5173, debug=False)
+    # Allow overriding bind address for debugging environments where
+    # loopback may not be reachable from other shells. Default to 0.0.0.0
+    # to increase accessibility in CI/containers; can be overridden via
+    # MCP_BIND environment variable for stricter binding in production.
+    bind_host = os.getenv('MCP_BIND', '0.0.0.0')
+
+    app.run(host=bind_host, port=5173, debug=False, use_reloader=False)
