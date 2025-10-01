@@ -49,6 +49,8 @@ jobs:
           fi
 
           # Install project dependencies using uv (uv pip uses the venv)
+          # Install fastmcp first (required by tests but not in requirements.txt for Cloud compatibility)
+          uv pip install "fastmcp[all]>=0.6.0"
           uv pip install -r requirements.txt
           uv pip install pytest flask
 
