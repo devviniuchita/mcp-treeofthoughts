@@ -40,6 +40,15 @@ jobs:
         run: |
           uv venv
           source .venv/bin/activate
+
+          # Ensure pip is installed in the created virtual environment
+          # Some runners may create venv without pip; use ensurepip as a fallback
+          if [ -x "./.venv/bin/python" ]; then
+            ./.venv/bin/python -m ensurepip --upgrade || true
+            ./.venv/bin/python -m pip install --upgrade pip setuptools wheel
+          fi
+
+          # Install project dependencies using uv (uv pip uses the venv)
           uv pip install -r requirements.txt
           uv pip install pytest flask
 
