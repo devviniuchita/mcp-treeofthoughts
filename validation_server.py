@@ -178,7 +178,9 @@ def test_jwt():
         # Update key metrics (using current timestamp as fallback)
         import time
         key_timestamp = time.time()  # Use current time as placeholder
-        metrics_collector.update_jwt_key_metrics(key_timestamp)        return jsonify(
+        metrics_collector.update_jwt_key_metrics(key_timestamp)
+
+        return jsonify(
             {
                 "success": True,
                 "jwt_configured": True,
