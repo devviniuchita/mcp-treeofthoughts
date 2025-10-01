@@ -3,13 +3,15 @@
 import os
 
 from flask import Flask
+from flask import Response
 from flask import jsonify
 from flask import make_response
-from flask import Response
 
 from src.exceptions import ConfigurationError
 from src.exceptions import TokenGenerationError
-from src.monitoring.metrics import metrics_collector, track_http_request, HealthChecker
+from src.monitoring.metrics import HealthChecker
+from src.monitoring.metrics import metrics_collector
+from src.monitoring.metrics import track_http_request
 
 
 app = Flask(__name__)
@@ -18,7 +20,7 @@ app = Flask(__name__)
 metrics_collector.set_app_info(
     version="1.0.0",
     environment=os.getenv("ENVIRONMENT", "development"),
-    build_time=os.getenv("BUILD_TIME", "unknown")
+    build_time=os.getenv("BUILD_TIME", "unknown"),
 )
 
 
@@ -27,6 +29,7 @@ def metrics():
     """Prometheus metrics endpoint."""
     try:
         from prometheus_client import CONTENT_TYPE_LATEST
+
         metrics_data = metrics_collector.get_metrics()
         return Response(metrics_data, mimetype=CONTENT_TYPE_LATEST)
     except Exception as e:
@@ -57,11 +60,16 @@ def health_check():
         return jsonify(response_data), status_code
 
     except Exception as e:
-        return jsonify({
-            "status": "unhealthy",
-            "error": str(e),
-            "service": "MCP TreeOfThoughts Enterprise"
-        }), 500
+        return (
+            jsonify(
+                {
+                    "status": "unhealthy",
+                    "error": str(e),
+                    "service": "MCP TreeOfThoughts Enterprise",
+                }
+            ),
+            500,
+        )
 
 
 @app.route('/api/constants', methods=['GET'])
@@ -171,12 +179,12 @@ def test_jwt():
 
         # Record JWT generation metrics
         metrics_collector.record_jwt_generation(
-            algorithm="RS256",
-            issuer="mcp-treeofthoughts"
+            algorithm="RS256", issuer="mcp-treeofthoughts"
         )
 
         # Update key metrics (using current timestamp as fallback)
         import time
+
         key_timestamp = time.time()  # Use current time as placeholder
         metrics_collector.update_jwt_key_metrics(key_timestamp)
 
