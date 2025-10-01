@@ -54,15 +54,11 @@ def test_funcoes_tools_existem():
         assert hasattr(server, funcao), f"Função {funcao} não encontrada"
         print(f"✓ Função {funcao} encontrada")
 
-@patch('src.execution_manager.ExecutionManager.start_execution')
 @patch('src.llm_client.get_chat_llm')
 @patch('src.llm_client.get_embeddings')
-def test_iniciar_processo_tot_mock(mock_embeddings, mock_llm, mock_start_exec):
+def test_iniciar_processo_tot_mock(mock_embeddings, mock_llm):
     """Testa a inicialização de processo com mocks"""
     import server
-
-    # Configurar mock para execution_manager.start_execution retornar run_id
-    mock_start_exec.return_value = "test-run-123"
 
     # Configurar mocks
     mock_llm_instance = MagicMock()
