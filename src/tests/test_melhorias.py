@@ -174,6 +174,7 @@ def test_active_runs_structure():
 async def test_cancelamento_funcional():
     """Testa se a função de cancelamento está funcionando"""
     from unittest.mock import patch
+
     import server
 
     run_id = "test_cancel"

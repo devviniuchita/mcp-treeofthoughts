@@ -23,9 +23,7 @@ def test_importacao():
     print("✓ Objeto MCP encontrado")
 
     # Verificar nome do servidor
-    assert (
-        server.mcp.name == "MCP TreeOfThoughts"
-    ), f"Nome incorreto: {server.mcp.name}"
+    assert server.mcp.name == "MCP TreeOfThoughts", f"Nome incorreto: {server.mcp.name}"
     print("✓ Nome do servidor correto")
 
 
