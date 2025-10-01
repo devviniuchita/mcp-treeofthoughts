@@ -35,6 +35,9 @@ from src.utils.path_mirror import ensure_mirror
 jwt_manager = JWTManager()
 execution_manager = ExecutionManager()
 
+# Global state tracking for active executions (for testing/monitoring)
+active_runs: Dict[str, Dict[str, Any]] = {}
+
 # Initialize FastMCP server with environment-aware authentication
 
 

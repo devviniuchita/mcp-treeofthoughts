@@ -185,28 +185,28 @@ class TestDecorators:
 
         # Note: In real test, we'd verify error metrics were recorded
 
-    @patch('flask.request')
-    @patch('flask.g')
-    def test_track_http_request_decorator(self, mock_g, mock_request):
+    def test_track_http_request_decorator(self):
         """Test HTTP request tracking decorator."""
-        mock_request.method = "GET"
-        mock_request.endpoint = "test_endpoint"
-        mock_request.content_length = 100
-        mock_request.get_data.return_value = b"test data"
+        from flask import Flask
 
+        app = Flask(__name__)
+
+        @app.route('/test')
         @track_http_request
         def test_route():
             return {"status": "success"}, 200
 
-        result = test_route()
-        assert result[0]["status"] == "success"
-        assert result[1] == 200
+        with app.app_context():
+            with app.test_client() as client:
+                response = client.get('/test')
+                assert response.status_code == 200
+                assert response.json["status"] == "success"
 
 
 class TestHealthChecker:
     """Test suite for HealthChecker class."""
 
-    @patch('src.monitoring.metrics.JWTManager')
+    @patch('src.jwt_manager.JWTManager')
     def test_check_jwt_system_healthy(self, mock_jwt_manager):
         """Test JWT system health check when healthy."""
         mock_instance = Mock()
@@ -216,7 +216,7 @@ class TestHealthChecker:
         result = HealthChecker.check_jwt_system()
         assert result is True
 
-    @patch('src.monitoring.metrics.JWTManager')
+    @patch('src.jwt_manager.JWTManager')
     def test_check_jwt_system_unhealthy(self, mock_jwt_manager):
         """Test JWT system health check when unhealthy."""
         mock_jwt_manager.side_effect = Exception("JWT system error")
