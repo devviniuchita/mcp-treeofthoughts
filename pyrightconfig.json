@@ -1,0 +1,13 @@
+{
+  "include": ["server.py", "src"],
+  "extraPaths": ["./src"],
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": ["./src"]
+    }
+  ],
+  "venvPath": "C:/Users/ADMIN/Desktop/rules-base",
+  "venv": ".venv",
+  "verboseOutput": true
+}

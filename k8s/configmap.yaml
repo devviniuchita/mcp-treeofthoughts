@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-treeofthoughts-config
+  namespace: mcp-treeofthoughts
+  labels:
+    app: mcp-treeofthoughts
+    component: config
+data:
+  # JWT Configuration
+  JWT_ALGORITHM: "RS256"
+  JWT_EXPIRATION_HOURS: "24"
+  JWT_ISSUER: "mcp-treeofthoughts"
+  JWT_AUDIENCE: "mcp-clients"
+
+  # Key Rotation Configuration
+  KEY_ROTATION_HOURS: "168" # 7 days
+  KEY_OVERLAP_HOURS: "24" # 1 day grace period
+  JWKS_CACHE_MAX_AGE: "3600" # 1 hour
+
+  # Server Configuration
+  SERVER_HOST: "0.0.0.0"
+  SERVER_PORT: "5173"
+
+  # Security Headers
+  CORS_ORIGINS: "*"
+  CACHE_CONTROL_MAX_AGE: "3600"
+
+  # Logging Configuration
+  LOG_LEVEL: "INFO"
+  LOG_FORMAT: "json"
+
+  # Health Check Configuration
+  HEALTH_CHECK_TIMEOUT: "30"
+
+  # MCP Tree of Thoughts Configuration
+  MAX_THOUGHTS_DEPTH: "5"
+  EVALUATION_STRATEGY: "hybrid"
+  SEMANTIC_CACHE_ENABLED: "true"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-nginx-config
+  namespace: mcp-treeofthoughts
+  labels:
+    app: mcp-treeofthoughts
+    component: nginx
+data:
+  nginx.conf: |
+    events {
+        worker_connections 1024;
+    }
+
+    http {
+        upstream mcp_backend {
+            server mcp-treeofthoughts-service:5173;
+        }
+
+        server {
+            listen 80;
+            server_name _;
+
+            # Security Headers
+            add_header X-Frame-Options DENY;
+            add_header X-Content-Type-Options nosniff;
+            add_header X-XSS-Protection "1; mode=block";
+            add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+            # Rate Limiting
+            limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+
+            # JWKS Endpoint (with caching)
+            location /.well-known/jwks.json {
+                limit_req zone=api burst=5 nodelay;
+                proxy_pass http://mcp_backend;
+                proxy_cache_valid 200 1h;
+                proxy_cache_use_stale error timeout updating;
+                add_header Cache-Control "public, max-age=3600";
+                add_header Access-Control-Allow-Origin "*";
+            }
+
+            # JWT Generation Endpoint
+            location /api/jwt {
+                limit_req zone=api burst=3 nodelay;
+                proxy_pass http://mcp_backend;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+            }
+
+            # Health Check
+            location /health {
+                proxy_pass http://mcp_backend;
+                access_log off;
+            }
+
+            # MCP Protocol Endpoints
+            location /mcp/ {
+                limit_req zone=api burst=10 nodelay;
+                proxy_pass http://mcp_backend;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection "upgrade";
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+        }
+    }

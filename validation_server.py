@@ -1,31 +1,75 @@
 """Servidor mínimo para TestSprite validation."""
 
 import os
-import sys
 
 from flask import Flask
+from flask import Response
 from flask import jsonify
+from flask import make_response
 
+from src.exceptions import ConfigurationError
+from src.exceptions import TokenGenerationError
+from src.monitoring.metrics import HealthChecker
+from src.monitoring.metrics import metrics_collector
+from src.monitoring.metrics import track_http_request
 
-# Add project root to path
-project_root = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, project_root)
 
 app = Flask(__name__)
 
+# Initialize metrics
+metrics_collector.set_app_info(
+    version="1.0.0",
+    environment=os.getenv("ENVIRONMENT", "development"),
+    build_time=os.getenv("BUILD_TIME", "unknown"),
+)
+
+
+@app.route('/metrics', methods=['GET'])
+def metrics():
+    """Prometheus metrics endpoint."""
+    try:
+        from prometheus_client import CONTENT_TYPE_LATEST
+
+        metrics_data = metrics_collector.get_metrics()
+        return Response(metrics_data, mimetype=CONTENT_TYPE_LATEST)
+    except Exception as e:
+        return jsonify({"error": "Failed to generate metrics", "details": str(e)}), 500
+
 
 @app.route('/health', methods=['GET'])
+@track_http_request
 def health_check():
-    """Health check endpoint."""
-    return jsonify(
-        {
-            "status": "healthy",
+    """Health check endpoint with comprehensive health validation."""
+    try:
+        # Run health checks
+        health_results = HealthChecker.run_all_checks()
+
+        # Determine overall health
+        overall_health = all(health_results.values())
+
+        response_data = {
+            "status": "healthy" if overall_health else "unhealthy",
+            "components": health_results,
             "service": "MCP TreeOfThoughts Enterprise",
             "version": "2.0.0",
             "refactored": True,
             "architecture": "enterprise",
         }
-    )
+
+        status_code = 200 if overall_health else 503
+        return jsonify(response_data), status_code
+
+    except Exception as e:
+        return (
+            jsonify(
+                {
+                    "status": "unhealthy",
+                    "error": str(e),
+                    "service": "MCP TreeOfThoughts Enterprise",
+                }
+            ),
+            500,
+        )
 
 
 @app.route('/api/constants', methods=['GET'])
@@ -43,7 +87,8 @@ def test_constants():
                 "constants_loaded": True,
             }
         )
-    except Exception as e:
+    except (ImportError, AttributeError) as e:
+        # Missing constants or attributes
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -51,11 +96,7 @@ def test_constants():
 def test_exceptions():
     """Test exception classes."""
     try:
-        from src.exceptions import ConfigurationError
-        from src.exceptions import ExecutionNotFoundError
-        from src.exceptions import ValidationError
-
-        # Test exception hierarchy
+        # Test exception hierarchy using project exception classes
         config_error = ConfigurationError("Test error", {"test": True})
 
         return jsonify(
@@ -67,18 +108,85 @@ def test_exceptions():
                 "enterprise_patterns": True,
             }
         )
-    except Exception as e:
+    except (ImportError, NameError, ConfigurationError) as e:
+        # ImportError: src.exceptions may be missing in test env
+        # NameError: symbol not found during runtime
+        # ConfigurationError: project-specific initialization problems
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/.well-known/jwks.json', methods=['GET'])
+@track_http_request
+def jwks_endpoint():
+    """JWKS endpoint for public key discovery (RFC 7517)."""
+    try:
+        from src.jwt_manager import JWTManager
+
+        jwt_manager = JWTManager()
+
+        # Auto-cleanup expired keys
+        jwt_manager.cleanup_expired_keys()
+
+        # Get JWKS with current + previous keys (if in grace period)
+        jwks_response = jwt_manager.get_public_jwks()
+
+        # Record JWKS metrics
+        metrics_collector.record_jwks_request(200, cache_hit=False)
+
+        # Create response with proper cache headers
+        response = make_response(jsonify(jwks_response))
+        response.headers['Content-Type'] = 'application/json'
+        response.headers['Cache-Control'] = 'public, max-age=3600, s-maxage=3600'
+        response.headers['Access-Control-Allow-Origin'] = '*'  # CORS for client access
+
+        return response
+
+    except (ConfigurationError, TokenGenerationError, OSError) as e:
+        # Known error cases for JWT initialization & JWK generation
+        return (
+            jsonify(
+                {
+                    "error": "jwks_unavailable",
+                    "message": "Unable to generate JWKS",
+                    "details": str(e),
+                }
+            ),
+            500,
+        )
+    except Exception as e:
+        # Unexpected errors
+        return (
+            jsonify(
+                {
+                    "error": "internal_server_error",
+                    "message": "Internal server error generating JWKS",
+                    "details": str(e),
+                }
+            ),
+            500,
+        )
+
+
 @app.route('/api/jwt', methods=['GET'])
+@track_http_request
 def test_jwt():
-    """Test JWT manager."""
+    """Test JWT manager and generate token."""
     try:
         from src.jwt_manager import JWTManager
 
         jwt_manager = JWTManager()
         token = jwt_manager.get_current_token()
+
+        # Record JWT generation metrics
+        metrics_collector.record_jwt_generation(
+            algorithm="RS256", issuer="mcp-treeofthoughts"
+        )
+
+        # Update key metrics (using current timestamp as fallback)
+        import time
+
+        key_timestamp = time.time()  # Use current time as placeholder
+        metrics_collector.update_jwt_key_metrics(key_timestamp)
 
         return jsonify(
             {
@@ -88,9 +196,11 @@ def test_jwt():
                 "rsa_keypair": jwt_manager.key_pair is not None,
                 "auth_provider": jwt_manager.auth_provider is not None,
                 "enterprise_security": True,
+                "jwks_available": True,  # Indicate JWKS endpoint availability
             }
         )
-    except Exception as e:
+    except (ConfigurationError, TokenGenerationError, OSError) as e:
+        # Known error cases for JWT initialization & token generation
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -123,4 +233,33 @@ if __name__ == '__main__':
     print("🔐 Enterprise Architecture Validation")
     print("📡 Starting on port 5173...")
 
-    app.run(host='127.0.0.1', port=5173, debug=False)
+    # Production environment checks
+    private_key_path = os.getenv("PRIVATE_KEY_PATH")
+    is_production = os.getenv("ENV", "").lower() == "production"
+
+    if is_production:
+        if not private_key_path:
+            print("❌ PRODUCTION ERROR: PRIVATE_KEY_PATH environment variable required")
+            exit(1)
+        elif not os.path.exists(private_key_path):
+            print(
+                f"❌ PRODUCTION ERROR: Private key file not found: {private_key_path}"
+            )
+            exit(1)
+        else:
+            print(f"✅ Production mode: Using private key from {private_key_path}")
+    else:
+        if private_key_path:
+            print(f"🔧 Development mode: Will use/create key at {private_key_path}")
+        else:
+            print("🔧 Development mode: Will generate ephemeral RSA key pair")
+
+    print("🔑 JWKS endpoint available at: /.well-known/jwks.json")
+
+    # Allow overriding bind address for debugging environments where
+    # loopback may not be reachable from other shells. Default to 0.0.0.0
+    # to increase accessibility in CI/containers; can be overridden via
+    # MCP_BIND environment variable for stricter binding in production.
+    bind_host = os.getenv('MCP_BIND', '0.0.0.0')
+
+    app.run(host=bind_host, port=5173, debug=False, use_reloader=False)
