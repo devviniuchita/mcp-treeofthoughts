@@ -38,117 +38,88 @@ def test_importacao():
 def test_estrutura_basica():
     """Testa a estrutura básica do servidor"""
     print("\nTestando estrutura básica...")
-    try:
-        import server
+    import server
 
-        # Verificar se active_runs existe
-        assert hasattr(server, 'active_runs'), "active_runs não encontrado"
-        print("✓ active_runs encontrado")
+    # Verificar se active_runs existe
+    assert hasattr(server, 'active_runs'), "active_runs não encontrado"
+    print("✓ active_runs encontrado")
 
-        # Verificar se é um dicionário
-        assert isinstance(server.active_runs, dict), "active_runs não é um dicionário"
-        print("✓ active_runs é um dicionário")
+    # Verificar se é um dicionário
+    assert isinstance(server.active_runs, dict), "active_runs não é um dicionário"
+    print("✓ active_runs é um dicionário")
 
-        # Verificar se está vazio inicialmente
-        server.active_runs.clear()
-        assert len(server.active_runs) == 0, "active_runs não está vazio"
-        print("✓ active_runs está vazio inicialmente")
-
-        return True
-    except Exception as e:
-        print(f"❌ Erro na estrutura básica: {e}")
-        return False
+    # Verificar se está vazio inicialmente
+    server.active_runs.clear()
+    assert len(server.active_runs) == 0, "active_runs não está vazio"
+    print("✓ active_runs está vazio inicialmente")
 
 
 def test_funcoes_existem():
     """Testa se as funções principais existem no módulo"""
     print("\nTestando existência das funções...")
-    try:
-        import server
+    import server
 
-        funcoes_esperadas = [
-            'iniciar_processo_tot',
-            'verificar_status',
-            'obter_resultado_completo',
-            'cancelar_execucao',
-            'listar_execucoes',
-            'obter_configuracao_padrao',
-            'obter_informacoes_sistema',
-        ]
+    funcoes_esperadas = [
+        'iniciar_processo_tot',
+        'verificar_status',
+        'obter_resultado_completo',
+        'cancelar_execucao',
+        'listar_execucoes',
+        'obter_configuracao_padrao',
+        'obter_informacoes_sistema',
+    ]
 
-        for funcao in funcoes_esperadas:
-            assert hasattr(server, funcao), f"Função {funcao} não encontrada"
-            print(f"✓ Função {funcao} encontrada")
-
-        return True
-    except Exception as e:
-        print(f"❌ Erro na verificação de funções: {e}")
-        return False
+    for funcao in funcoes_esperadas:
+        assert hasattr(server, funcao), f"Função {funcao} não encontrada"
+        print(f"✓ Função {funcao} encontrada")
 
 
 def test_configuracao_padrao():
     """Testa se a configuração padrão funciona"""
     print("\nTestando configuração padrão...")
-    try:
-        import json
+    import json
+    from pathlib import Path
 
-        import server
+    # Acessar a função diretamente através do decorador
+    # Vamos testar se a função existe e pode ser chamada
+    print("✓ Função de configuração encontrada")
 
-        # Acessar a função diretamente através do decorador
-        # Vamos testar se a função existe e pode ser chamada
-        print("✓ Função de configuração encontrada")
+    # Como não podemos chamar diretamente, vamos verificar se o defaults.json existe
+    defaults_path = Path("defaults.json")
+    if defaults_path.exists():
+        with open(defaults_path, 'r') as f:
+            config = json.load(f)
+        print("✓ Arquivo defaults.json encontrado e carregado")
+    else:
+        # Configuração padrão hardcoded
+        config = {"strategy": "beam_search", "branching_factor": 3, "max_depth": 3}
+        print("✓ Configuração padrão hardcoded disponível")
 
-        # Como não podemos chamar diretamente, vamos verificar se o defaults.json existe
-        from pathlib import Path
-
-        defaults_path = Path("defaults.json")
-        if defaults_path.exists():
-            with open(defaults_path, 'r') as f:
-                config = json.load(f)
-            print("✓ Arquivo defaults.json encontrado e carregado")
-        else:
-            # Configuração padrão hardcoded
-            config = {"strategy": "beam_search", "branching_factor": 3, "max_depth": 3}
-            print("✓ Configuração padrão hardcoded disponível")
-
-        # Verificar campos essenciais
-        campos_essenciais = ['strategy', 'branching_factor', 'max_depth']
-        for campo in campos_essenciais:
-            assert campo in config, f"Campo {campo} não encontrado na configuração"
-            print(f"✓ Campo {campo} encontrado")
-
-        return True
-    except Exception as e:
-        print(f"❌ Erro na configuração padrão: {e}")
-        return False
+    # Verificar campos essenciais
+    campos_essenciais = ['strategy', 'branching_factor', 'max_depth']
+    for campo in campos_essenciais:
+        assert campo in config, f"Campo {campo} não encontrado na configuração"
+        print(f"✓ Campo {campo} encontrado")
 
 
 def test_informacoes_sistema():
     """Testa se as informações do sistema funcionam"""
     print("\nTestando informações do sistema...")
-    try:
-        import server
+    # Como não podemos chamar a função diretamente, vamos verificar se ela existe
+    # e se o código contém as informações esperadas
+    print("✓ Função de informações encontrada")
 
-        # Como não podemos chamar a função diretamente, vamos verificar se ela existe
-        # e se o código contém as informações esperadas
-        print("✓ Função de informações encontrada")
+    # Verificar se o código do servidor contém as informações esperadas
+    with open('server.py', 'r', encoding='utf-8') as f:
+        server_code = f.read()
 
-        # Verificar se o código do servidor contém as informações esperadas
-        with open('server.py', 'r', encoding='utf-8') as f:
-            server_code = f.read()
+    assert (
+        "MCP TreeOfThoughts" in server_code
+    ), "Nome do sistema não encontrado no código"
+    print("✓ Nome do sistema encontrado no código")
 
-        assert (
-            "MCP TreeOfThoughts" in server_code
-        ), "Nome do sistema não encontrado no código"
-        print("✓ Nome do sistema encontrado no código")
-
-        assert "Tree of Thoughts" in server_code, "Metodologia não mencionada no código"
-        print("✓ Metodologia mencionada no código")
-
-        # Não retornar nada (None) conforme esperado pelo pytest
-    except Exception as e:
-        print(f"❌ Erro nas informações do sistema: {e}")
-        pytest.fail(f"Teste falhou: {e}")
+    assert "Tree of Thoughts" in server_code, "Metodologia não mencionada no código"
+    print("✓ Metodologia mencionada no código")
 
 
 def main():

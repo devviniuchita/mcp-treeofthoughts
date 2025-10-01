@@ -301,6 +301,10 @@ class TestMetricsIntegration:
 
         metrics_output = collector.get_metrics()
 
+        # Decode bytes to string if necessary
+        if isinstance(metrics_output, bytes):
+            metrics_output = metrics_output.decode('utf-8')
+
         # Basic Prometheus format validation
         assert isinstance(metrics_output, str)
         assert "# HELP" in metrics_output
