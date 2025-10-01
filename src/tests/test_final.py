@@ -2,17 +2,21 @@
 Teste final para verificar se o servidor MCP está funcionando
 """
 
-import sys
 import os
+import sys
+
 import pytest
 
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 
 def test_importacao():
     """Testa se o servidor pode ser importado sem erros"""
     print("Testando importação do servidor...")
     try:
         import server
+
         print("✓ Servidor importado com sucesso")
 
         # Verificar se o objeto mcp existe
@@ -20,13 +24,16 @@ def test_importacao():
         print("✓ Objeto MCP encontrado")
 
         # Verificar nome do servidor
-        assert server.mcp.name == "MCP TreeOfThoughts", f"Nome incorreto: {server.mcp.name}"
+        assert (
+            server.mcp.name == "MCP TreeOfThoughts"
+        ), f"Nome incorreto: {server.mcp.name}"
         print("✓ Nome do servidor correto")
 
         return True
     except Exception as e:
         print(f"❌ Erro na importação: {e}")
         return False
+
 
 def test_estrutura_basica():
     """Testa a estrutura básica do servidor"""
@@ -52,6 +59,7 @@ def test_estrutura_basica():
         print(f"❌ Erro na estrutura básica: {e}")
         return False
 
+
 def test_funcoes_existem():
     """Testa se as funções principais existem no módulo"""
     print("\nTestando existência das funções...")
@@ -65,7 +73,7 @@ def test_funcoes_existem():
             'cancelar_execucao',
             'listar_execucoes',
             'obter_configuracao_padrao',
-            'obter_informacoes_sistema'
+            'obter_informacoes_sistema',
         ]
 
         for funcao in funcoes_esperadas:
@@ -77,12 +85,14 @@ def test_funcoes_existem():
         print(f"❌ Erro na verificação de funções: {e}")
         return False
 
+
 def test_configuracao_padrao():
     """Testa se a configuração padrão funciona"""
     print("\nTestando configuração padrão...")
     try:
-        import server
         import json
+
+        import server
 
         # Acessar a função diretamente através do decorador
         # Vamos testar se a função existe e pode ser chamada
@@ -90,6 +100,7 @@ def test_configuracao_padrao():
 
         # Como não podemos chamar diretamente, vamos verificar se o defaults.json existe
         from pathlib import Path
+
         defaults_path = Path("defaults.json")
         if defaults_path.exists():
             with open(defaults_path, 'r') as f:
@@ -97,11 +108,7 @@ def test_configuracao_padrao():
             print("✓ Arquivo defaults.json encontrado e carregado")
         else:
             # Configuração padrão hardcoded
-            config = {
-                "strategy": "beam_search",
-                "branching_factor": 3,
-                "max_depth": 3
-            }
+            config = {"strategy": "beam_search", "branching_factor": 3, "max_depth": 3}
             print("✓ Configuração padrão hardcoded disponível")
 
         # Verificar campos essenciais
@@ -114,6 +121,7 @@ def test_configuracao_padrao():
     except Exception as e:
         print(f"❌ Erro na configuração padrão: {e}")
         return False
+
 
 def test_informacoes_sistema():
     """Testa se as informações do sistema funcionam"""
@@ -129,7 +137,9 @@ def test_informacoes_sistema():
         with open('server.py', 'r', encoding='utf-8') as f:
             server_code = f.read()
 
-        assert "MCP TreeOfThoughts" in server_code, "Nome do sistema não encontrado no código"
+        assert (
+            "MCP TreeOfThoughts" in server_code
+        ), "Nome do sistema não encontrado no código"
         print("✓ Nome do sistema encontrado no código")
 
         assert "Tree of Thoughts" in server_code, "Metodologia não mencionada no código"
@@ -140,6 +150,7 @@ def test_informacoes_sistema():
         print(f"❌ Erro nas informações do sistema: {e}")
         pytest.fail(f"Teste falhou: {e}")
 
+
 def main():
     """Executa todos os testes"""
     print("🚀 Iniciando testes finais do MCP TreeOfThoughts Server...\n")
@@ -149,7 +160,7 @@ def main():
         test_estrutura_basica,
         test_funcoes_existem,
         test_configuracao_padrao,
-        test_informacoes_sistema
+        test_informacoes_sistema,
     ]
 
     sucessos = 0
@@ -180,6 +191,7 @@ def main():
     else:
         print(f"\n❌ {total - sucessos} teste(s) falharam")
         return False
+
 
 if __name__ == "__main__":
     success = main()

@@ -108,7 +108,10 @@ def test_server_cancellation_structure():
         print("✓ Estrutura de cancelamento implementada no servidor")
     except Exception as e:
         print(f"❌ Erro ao verificar servidor: {e}")
-        raisedef test_nodes_cancellation_checks():
+        raise
+
+
+def test_nodes_cancellation_checks():
     """Testa se os nós verificam cancelamento"""
     try:
         # Determinar o caminho relativo para nodes.py
