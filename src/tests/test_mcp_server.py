@@ -3,26 +3,35 @@ Testes para o servidor MCP TreeOfThoughts
 Atualizado para funcionar com fastmcp em vez de FastAPI
 """
 
-import pytest
 import asyncio
 import json
-from unittest.mock import patch, MagicMock
-import sys
 import os
+import sys
+
+from unittest.mock import MagicMock
+from unittest.mock import patch
+
+import pytest
+
 
 # Adicionar o diretório pai ao path para importar o servidor
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 def test_servidor_mcp_importacao():
     """Testa se o servidor MCP pode ser importado sem erros"""
     try:
         import server
+
         assert hasattr(server, 'mcp'), "Objeto mcp não encontrado"
-        assert server.mcp.name == "MCP TreeOfThoughts", f"Nome incorreto: {server.mcp.name}"
+        assert (
+            server.mcp.name == "MCP TreeOfThoughts"
+        ), f"Nome incorreto: {server.mcp.name}"
         assert hasattr(server, 'active_runs'), "active_runs não encontrado"
         print("✓ Servidor MCP importado com sucesso")
     except Exception as e:
         pytest.fail(f"Erro na importação do servidor: {e}")
+
 
 def test_estrutura_active_runs():
     """Testa a estrutura do active_runs"""
@@ -36,6 +45,7 @@ def test_estrutura_active_runs():
     assert len(server.active_runs) == 0, "active_runs não está vazio"
     print("✓ Estrutura active_runs validada")
 
+
 def test_funcoes_tools_existem():
     """Testa se as funções das tools existem no módulo"""
     import server
@@ -47,12 +57,13 @@ def test_funcoes_tools_existem():
         'cancelar_execucao',
         'listar_execucoes',
         'obter_configuracao_padrao',
-        'obter_informacoes_sistema'
+        'obter_informacoes_sistema',
     ]
 
     for funcao in funcoes_esperadas:
         assert hasattr(server, funcao), f"Função {funcao} não encontrada"
         print(f"✓ Função {funcao} encontrada")
+
 
 @patch('src.llm_client.get_chat_llm')
 @patch('src.llm_client.get_embeddings')
@@ -74,13 +85,13 @@ def test_iniciar_processo_tot_mock(mock_embeddings, mock_llm):
 
     # Testar inicialização
     resultado = server.iniciar_processo_tot(
-        instrucao="Teste: 2 + 2 = ?",
-        restricoes="Use apenas operações básicas"
+        instrucao="Teste: 2 + 2 = ?", restricoes="Use apenas operações básicas"
     )
 
     assert "Processo Tree of Thoughts iniciado com sucesso" in resultado
     assert "ID da execução:" in resultado
     print("✓ Inicialização de processo funcionando com mocks")
+
 
 def test_verificar_status_run_inexistente():
     """Testa verificação de status para execução inexistente"""
@@ -90,6 +101,7 @@ def test_verificar_status_run_inexistente():
     assert "não encontrada" in resultado.lower()
     print("✓ Verificação de status para execução inexistente funcionando")
 
+
 def test_listar_execucoes_vazio():
     """Testa listagem quando não há execuções"""
     import server
@@ -98,18 +110,23 @@ def test_listar_execucoes_vazio():
     server.active_runs.clear()
 
     resultado = server.listar_execucoes()
-    assert "EXECUÇÕES TREE OF THOUGHTS" in resultado or "Nenhuma execução encontrada" in resultado
+    assert (
+        "EXECUÇÕES TREE OF THOUGHTS" in resultado
+        or "Nenhuma execução encontrada" in resultado
+    )
     print("✓ Listagem de execuções vazias funcionando")
 
 
 def test_configuracao_padrao():
     """Testa se a configuração padrão pode ser obtida"""
-    import server
     import json
 
     # Como não podemos chamar diretamente, vamos verificar se o defaults.json existe
     # ou se a configuração hardcoded está disponível
     from pathlib import Path
+
+    import server
+
     defaults_path = Path("defaults.json")
 
     if defaults_path.exists():
@@ -118,11 +135,7 @@ def test_configuracao_padrao():
         print("✓ Arquivo defaults.json encontrado")
     else:
         # Configuração padrão hardcoded esperada
-        config = {
-            "strategy": "beam_search",
-            "branching_factor": 3,
-            "max_depth": 3
-        }
+        config = {"strategy": "beam_search", "branching_factor": 3, "max_depth": 3}
         print("✓ Configuração padrão hardcoded disponível")
 
     # Verificar campos essenciais
@@ -130,6 +143,7 @@ def test_configuracao_padrao():
     for campo in campos_essenciais:
         assert campo in config, f"Campo {campo} não encontrado na configuração"
         print(f"✓ Campo {campo} encontrado")
+
 
 def test_informacoes_sistema():
     """Testa se as informações do sistema estão disponíveis"""
@@ -139,9 +153,12 @@ def test_informacoes_sistema():
     with open('server.py', 'r', encoding='utf-8') as f:
         server_code = f.read()
 
-    assert "MCP TreeOfThoughts" in server_code, "Nome do sistema não encontrado no código"
+    assert (
+        "MCP TreeOfThoughts" in server_code
+    ), "Nome do sistema não encontrado no código"
     assert "Tree of Thoughts" in server_code, "Metodologia não mencionada no código"
     print("✓ Informações do sistema disponíveis")
+
 
 def test_cancelar_execucao_inexistente():
     """Testa cancelamento de execução inexistente"""
@@ -150,6 +167,7 @@ def test_cancelar_execucao_inexistente():
     resultado = server.cancelar_execucao(run_id="inexistente")
     assert "não encontrada" in resultado.lower()
     print("✓ Cancelamento de execução inexistente funcionando")
+
 
 if __name__ == "__main__":
     print("🚀 Executando testes do servidor MCP TreeOfThoughts...\n")
@@ -164,7 +182,7 @@ if __name__ == "__main__":
         test_listar_execucoes_vazio,
         test_configuracao_padrao,
         test_informacoes_sistema,
-        test_cancelar_execucao_inexistente
+        test_cancelar_execucao_inexistente,
     ]
 
     sucessos = 0
@@ -174,7 +192,9 @@ if __name__ == "__main__":
         try:
             if 'mock' in teste.__name__:
                 # Executar testes com mock
-                with patch('src.llm_client.get_chat_llm'), patch('src.llm_client.get_embeddings'):
+                with patch('src.llm_client.get_chat_llm'), patch(
+                    'src.llm_client.get_embeddings'
+                ):
                     teste()
             else:
                 teste()

@@ -122,7 +122,7 @@ def test_server_cancellation_structure():
     server.active_runs[test_run_id] = {
         "status": "running",
         "cancellation_event": None,  # Pode ser None antes de ser iniciado
-        "task": None
+        "task": None,
     }
 
     assert "cancellation_event" in server.active_runs[test_run_id]

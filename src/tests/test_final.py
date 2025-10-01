@@ -14,25 +14,19 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 def test_importacao():
     """Testa se o servidor pode ser importado sem erros"""
     print("Testando importação do servidor...")
-    try:
-        import server
+    import server
 
-        print("✓ Servidor importado com sucesso")
+    print("✓ Servidor importado com sucesso")
 
-        # Verificar se o objeto mcp existe
-        assert hasattr(server, 'mcp'), "Objeto mcp não encontrado"
-        print("✓ Objeto MCP encontrado")
+    # Verificar se o objeto mcp existe
+    assert hasattr(server, 'mcp'), "Objeto mcp não encontrado"
+    print("✓ Objeto MCP encontrado")
 
-        # Verificar nome do servidor
-        assert (
-            server.mcp.name == "MCP TreeOfThoughts"
-        ), f"Nome incorreto: {server.mcp.name}"
-        print("✓ Nome do servidor correto")
-
-        return True
-    except Exception as e:
-        print(f"❌ Erro na importação: {e}")
-        return False
+    # Verificar nome do servidor
+    assert (
+        server.mcp.name == "MCP TreeOfThoughts"
+    ), f"Nome incorreto: {server.mcp.name}"
+    print("✓ Nome do servidor correto")
 
 
 def test_estrutura_basica():
@@ -78,6 +72,7 @@ def test_configuracao_padrao():
     """Testa se a configuração padrão funciona"""
     print("\nTestando configuração padrão...")
     import json
+
     from pathlib import Path
 
     # Acessar a função diretamente através do decorador
