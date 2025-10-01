@@ -15,3 +15,11 @@ scikit-learn
 
 # Additional required packages
 python-dotenv
+flask
+pytest
+pydantic
+cryptography
+pyjwt
+prometheus-client
+psutil
+httpx

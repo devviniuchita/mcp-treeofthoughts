@@ -1,0 +1,77 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mcp-treeofthoughts-metrics
+  namespace: mcp-treeofthoughts
+  labels:
+    app: mcp-treeofthoughts
+    component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: mcp-treeofthoughts
+      component: metrics
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      honorLabels: true
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: mcp-treeofthoughts-alerts
+  namespace: mcp-treeofthoughts
+  labels:
+    app: mcp-treeofthoughts
+    component: alerts
+spec:
+  groups:
+    - name: mcp-treeofthoughts.rules
+      interval: 30s
+      rules:
+        - alert: MCPServerDown
+          expr: up{job="mcp-treeofthoughts-metrics"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "MCP TreeOfThoughts server is down"
+            description: "MCP TreeOfThoughts server has been down for more than 1 minute."
+
+        - alert: MCPHighCPUUsage
+          expr: rate(container_cpu_usage_seconds_total{pod=~"mcp-treeofthoughts-.*"}[5m]) > 0.8
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High CPU usage on MCP server"
+            description: "MCP server {{ $labels.pod }} CPU usage is above 80% for 5 minutes."
+
+        - alert: MCPHighMemoryUsage
+          expr: container_memory_usage_bytes{pod=~"mcp-treeofthoughts-.*"} / container_spec_memory_limit_bytes > 0.9
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High memory usage on MCP server"
+            description: "MCP server {{ $labels.pod }} memory usage is above 90%."
+
+        - alert: MCPJWTKeyRotationDue
+          expr: time() - mcp_jwt_key_created_timestamp > 604800 # 7 days
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "JWT key rotation is due"
+            description: "JWT key for MCP server is older than 7 days and should be rotated."
+
+        - alert: MCPHighErrorRate
+          expr: rate(mcp_http_requests_total{status=~"5.."}[5m]) / rate(mcp_http_requests_total[5m]) > 0.1
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "High error rate on MCP server"
+            description: "MCP server error rate is above 10% for 2 minutes."

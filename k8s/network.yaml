@@ -1,0 +1,121 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mcp-treeofthoughts-netpol
+  namespace: mcp-treeofthoughts
+  labels:
+    app: mcp-treeofthoughts
+spec:
+  podSelector:
+    matchLabels:
+      app: mcp-treeofthoughts
+  policyTypes:
+    - Ingress
+    - Egress
+
+  ingress:
+    # Allow ingress from nginx ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 5173
+
+    # Allow ingress from same namespace (service mesh)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: mcp-treeofthoughts
+      ports:
+        - protocol: TCP
+          port: 5173
+        - protocol: TCP
+          port: 8080 # metrics
+
+    # Allow health checks from kube-system
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: TCP
+          port: 5173
+
+  egress:
+    # Allow DNS resolution
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+    # Allow HTTPS outbound (for external APIs)
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+
+    # Allow Kubernetes API access
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 6443
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mcp-treeofthoughts-ingress
+  namespace: mcp-treeofthoughts
+  labels:
+    app: mcp-treeofthoughts
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - mcp-api.yourdomain.com # Replace with your domain
+      secretName: mcp-tls-secret
+
+  rules:
+    - host: mcp-api.yourdomain.com # Replace with your domain
+      http:
+        paths:
+          - path: /.well-known/jwks.json
+            pathType: Exact
+            backend:
+              service:
+                name: mcp-treeofthoughts-service
+                port:
+                  number: 80
+          - path: /api/jwt
+            pathType: Prefix
+            backend:
+              service:
+                name: mcp-treeofthoughts-service
+                port:
+                  number: 80
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: mcp-treeofthoughts-service
+                port:
+                  number: 80
+          - path: /mcp
+            pathType: Prefix
+            backend:
+              service:
+                name: mcp-treeofthoughts-service
+                port:
+                  number: 80

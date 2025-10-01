@@ -5,26 +5,63 @@ import os
 from flask import Flask
 from flask import jsonify
 from flask import make_response
+from flask import Response
 
 from src.exceptions import ConfigurationError
 from src.exceptions import TokenGenerationError
+from src.monitoring.metrics import metrics_collector, track_http_request, HealthChecker
 
 
 app = Flask(__name__)
 
+# Initialize metrics
+metrics_collector.set_app_info(
+    version="1.0.0",
+    environment=os.getenv("ENVIRONMENT", "development"),
+    build_time=os.getenv("BUILD_TIME", "unknown")
+)
+
+
+@app.route('/metrics', methods=['GET'])
+def metrics():
+    """Prometheus metrics endpoint."""
+    try:
+        from prometheus_client import CONTENT_TYPE_LATEST
+        metrics_data = metrics_collector.get_metrics()
+        return Response(metrics_data, mimetype=CONTENT_TYPE_LATEST)
+    except Exception as e:
+        return jsonify({"error": "Failed to generate metrics", "details": str(e)}), 500
+
 
 @app.route('/health', methods=['GET'])
+@track_http_request
 def health_check():
-    """Health check endpoint."""
-    return jsonify(
-        {
-            "status": "healthy",
+    """Health check endpoint with comprehensive health validation."""
+    try:
+        # Run health checks
+        health_results = HealthChecker.run_all_checks()
+
+        # Determine overall health
+        overall_health = all(health_results.values())
+
+        response_data = {
+            "status": "healthy" if overall_health else "unhealthy",
+            "components": health_results,
             "service": "MCP TreeOfThoughts Enterprise",
             "version": "2.0.0",
             "refactored": True,
             "architecture": "enterprise",
         }
-    )
+
+        status_code = 200 if overall_health else 503
+        return jsonify(response_data), status_code
+
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e),
+            "service": "MCP TreeOfThoughts Enterprise"
+        }), 500
 
 
 @app.route('/api/constants', methods=['GET'])
@@ -71,6 +108,7 @@ def test_exceptions():
 
 
 @app.route('/.well-known/jwks.json', methods=['GET'])
+@track_http_request
 def jwks_endpoint():
     """JWKS endpoint for public key discovery (RFC 7517)."""
     try:
@@ -83,6 +121,9 @@ def jwks_endpoint():
 
         # Get JWKS with current + previous keys (if in grace period)
         jwks_response = jwt_manager.get_public_jwks()
+
+        # Record JWKS metrics
+        metrics_collector.record_jwks_request(200, cache_hit=False)
 
         # Create response with proper cache headers
         response = make_response(jsonify(jwks_response))
@@ -119,15 +160,25 @@ def jwks_endpoint():
 
 
 @app.route('/api/jwt', methods=['GET'])
+@track_http_request
 def test_jwt():
-    """Test JWT manager."""
+    """Test JWT manager and generate token."""
     try:
         from src.jwt_manager import JWTManager
 
         jwt_manager = JWTManager()
         token = jwt_manager.get_current_token()
 
-        return jsonify(
+        # Record JWT generation metrics
+        metrics_collector.record_jwt_generation(
+            algorithm="RS256",
+            issuer="mcp-treeofthoughts"
+        )
+
+        # Update key metrics (using current timestamp as fallback)
+        import time
+        key_timestamp = time.time()  # Use current time as placeholder
+        metrics_collector.update_jwt_key_metrics(key_timestamp)        return jsonify(
             {
                 "success": True,
                 "jwt_configured": True,

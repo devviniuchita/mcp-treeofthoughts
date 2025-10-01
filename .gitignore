@@ -208,6 +208,20 @@ id_rsa*
 id_ed25519*
 
 # ------------------
+# MCP TreeOfThoughts - Project Specific
+# ------------------
+# JWT Tokens (CRITICAL - Contains sensitive tokens)
+current_token.txt
+tmp_token.txt
+*_token.txt
+
+# Test JWT Keys (CRITICAL - Private keys)
+test-keys/
+**/test-keys/
+test_private_key.pem
+**/test_private_key.pem
+
+# ------------------
 # Development Tools & IDEs
 # ------------------
 
@@ -238,7 +252,6 @@ id_ed25519*
 .copilotignore
 .copilot/
 .qoderignore
-.github/
 copilot-rules/
 copilot-instructions.md
 .claude/
@@ -361,6 +374,12 @@ kengi-idiomas*.log
 api*.log
 dev-debug.log
 
+# MCP TreeOfThoughts - Generated files
+validation_*.log
+final_validation_*.log
+validation_report_*.md
+server_output.log
+
 # Memory System - Runtime metrics (generated files)
 memory-sync-metrics.json
 
@@ -374,6 +393,20 @@ memory-sync-metrics.json
 *.orig
 .tmp/
 temp/
+tmp/
+
+# MCP TreeOfThoughts - Development artifacts
+pasted_file_*.json
+cursor_config.json
+scripts_backup/
+
+# MCP TreeOfThoughts - Sensitive scripts (contain tokens/production URLs)
+scripts/extract_token.py
+scripts/debug_auth.py
+scripts/*_auth.py
+working_token.txt
+scripts_backup/debug_auth.py
+scripts_backup/test_client.py
 
 # ------------------
 # Test Results & Reports
@@ -488,9 +521,6 @@ testsprite_tests/
 
 # VSCode specific files (keep essential, ignore user-specific)
 .vscode/settings.json
-!.vscode/launch.json
-!.vscode/tasks.json
-!.vscode/*.code-snippets
 
 # Todo2 - AI-powered task management directories
 .cursor/rules/todo2*.mdc
@@ -531,27 +561,27 @@ playground-1.mongodb.js
 .github/copilot-rules/
 .github/memory-system/
 
-# -----------------------------------
-# GitHub Actions - Force include
-#! Garante que workflows sejam versionados mesmo com ignore do .github/
-.github/workflows/azure-deploy.yml
-.github/workflows/playwright.yml
-.vercel
-!docs/ci-vercel-check.md
-Tasklist.md
-pyrightconfig.json
+# Pessoais
 scripts/analyze_jwt.py
 scripts/debug_auth.py
 scripts/test_jwt_correct.py
 scripts/__init__.py
 scripts/generate_test_token.py
 scripts/get_fresh_token.py
-scripts/extract_token.py
-current_token.txt
 FASTMCP_CLOUD_SETUP.md
-current_token.txt
 CHANGELOG_LATEST_VERSIONS.md
 FASTMCP_CLOUD_DEPENDENCIES.md
 TEST_TOKEN.sh
 FORCE_REDEPLOY.md
 FASTMCP_CLOUD_TOKEN_FIX.md
+
+# -----------------------------------
+# GitHub Actions - Force include
+#! Garante que workflows sejam versionados mesmo com ignore do .github/
+.vercel
+!docs/ci-vercel-check.md
+Tasklist.md
+!.github/workflows/
+!scripts/generate_token_via_manager.py
+scripts/extract_token.py
+pasted_file_XHb4N5_defaults.json
