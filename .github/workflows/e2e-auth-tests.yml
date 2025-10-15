@@ -9,20 +9,26 @@ on:
 jobs:
   e2e-auth-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    - name: Generate RSA key pair for JWT
-      run: |
-        mkdir -p /tmp/jwt_keys
-        openssl genpkey -algorithm RSA -out /tmp/jwt_keys/private_key.pem -pkcs8
-        chmod 600 /tmp/jwt_keys/private_key.pem
-        echo "PRIVATE_KEY_PATH=/tmp/jwt_keys/private_key.pem" >> $GITHUB_ENV
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.12
 
     - name: Install system dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y openssl
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
 
     - name: Install FastMCP and test dependencies
       run: |
@@ -33,46 +39,37 @@ jobs:
       run: |
         python -c "import fastmcp; print(f'FastMCP version: {fastmcp.__version__}')"
 
-    - name: Set environment variables for tests
+    - name: Generate RSA key pair for JWT
+      run: |
+        mkdir -p /tmp/jwt_keys
+        openssl genpkey -algorithm RSA -out /tmp/jwt_keys/private_key.pem -pkcs8
+        chmod 600 /tmp/jwt_keys/private_key.pem
+        ls -la /tmp/jwt_keys/private_key.pem
+        echo "PRIVATE_KEY_PATH=/tmp/jwt_keys/private_key.pem" >> $GITHUB_ENV
+
+    - name: Verify key generation
+      run: |
+        echo "PRIVATE_KEY_PATH: /tmp/jwt_keys/private_key.pem"
+        ls -la /tmp/jwt_keys/private_key.pem
+        openssl rsa -in /tmp/jwt_keys/private_key.pem -check -noout
+
+    - name: Set environment variables
       run: |
         echo "FASTMCP_CLOUD=true" >> $GITHUB_ENV
+        echo "CI=true" >> $GITHUB_ENV
 
-    - name: Run E2E Authentication Tests
+    - name: Run E2E Tests
       env:
         FASTMCP_CLOUD: "true"
-        PRIVATE_KEY_PATH: ${{ env.PRIVATE_KEY_PATH }}
-        AUTH_TOKEN: ${{ secrets.E2E_AUTH_TOKEN }}
-        FASTMCP_SERVER_AUTH: ${{ secrets.FASTMCP_SERVER_AUTH }}
+        PRIVATE_KEY_PATH: /tmp/jwt_keys/private_key.pem
+        CI: "true"
       run: |
         python scripts/run_e2e_auth_tests.py --verbose
 
-    - name: Run Pytest Test Suite
+    - name: Run Pytest Suite
       env:
         FASTMCP_CLOUD: "true"
-        PRIVATE_KEY_PATH: ${{ env.PRIVATE_KEY_PATH }}
-        AUTH_TOKEN: ${{ secrets.E2E_AUTH_TOKEN }}
-        FASTMCP_SERVER_AUTH: ${{ secrets.FASTMCP_SERVER_AUTH }}
+        PRIVATE_KEY_PATH: /tmp/jwt_keys/private_key.pem
+        CI: "true"
       run: |
-        python -m pytest src/tests/test_e2e_authentication.py -v --tb=short
-
-    - name: Upload test results
-      if: always()
-      uses: actions/upload-artifact@v3
-      with:
-        name: e2e-test-results
-        path: |
-          logs/
-          *.log
-        retention-days: 7
-
-    - name: Test Cloud Connectivity
-      if: env.AUTH_TOKEN != ''
-      env:
-        AUTH_TOKEN: ${{ secrets.E2E_AUTH_TOKEN }}
-      run: |
-        curl -H "Authorization: Bearer " \
-             -H "Content-Type: application/json" \
-             https://mcptreeofthoughts.fastmcp.app/mcp \
-             --max-time 30 \
-             --fail-with-body || echo "Cloud connectivity test completed"
-
+        python -m pytest src/tests/test_e2e_authentication.py -v --tb=short -s

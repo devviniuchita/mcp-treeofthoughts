@@ -65,27 +65,53 @@ class JWTManager:
 
             # Check for existing private key first
             private_key_path = os.getenv("PRIVATE_KEY_PATH")
-            if private_key_path and os.path.exists(private_key_path):
-                logger.info(f"🔑 Carregando chave privada de: {private_key_path}")
-                self.key_pair = self.load_private_key(private_key_path)
+            
+            # Enhanced logging for debugging CI issues
+            logger.info(f"🔍 PRIVATE_KEY_PATH from environment: {private_key_path}")
+            
+            if private_key_path:
+                logger.info(f"🔍 Checking if path exists: {private_key_path}")
+                path_exists = os.path.exists(private_key_path)
+                logger.info(f"🔍 Path exists: {path_exists}")
+                
+                if path_exists:
+                    # Check if file is readable
+                    if os.path.isfile(private_key_path) and os.access(private_key_path, os.R_OK):
+                        logger.info(f"🔑 Carregando chave privada de: {private_key_path}")
+                        self.key_pair = self.load_private_key(private_key_path)
+                    else:
+                        logger.error(f"❌ Arquivo não é legível: {private_key_path}")
+                        raise ConfigurationError(
+                            f"Arquivo de chave privada não é legível: {private_key_path}"
+                        )
+                else:
+                    # Check if we're in production/CI and key is required
+                    is_production = os.getenv("ENV", "").lower() == "production"
+                    is_ci = os.getenv("CI", "").lower() == "true" or os.getenv("GITHUB_ACTIONS", "").lower() == "true"
+                    
+                    if is_production or is_ci:
+                        logger.error(f"❌ PRIVATE_KEY_PATH definido mas arquivo não encontrado: {private_key_path}")
+                        logger.error(f"❌ Diretório pai existe? {os.path.exists(os.path.dirname(private_key_path)) if os.path.dirname(private_key_path) else 'N/A'}")
+                        raise ConfigurationError(
+                            f"Arquivo de chave privada não encontrado: {private_key_path}. "
+                            f"Verifique se a chave foi gerada corretamente no workflow."
+                        )
+                    
+                    # Development mode: generate key and save to path
+                    logger.info("🔑 Gerando novo par de chaves RSA (desenvolvimento)")
+                    self.key_pair = RSAKeyPair.generate()
+                    
+                    # Try to persist the key
+                    try:
+                        self.persist_private_key(
+                            private_key_path, self.key_pair.private_key.get_secret_value()
+                        )
+                    except Exception as e:
+                        logger.warning(f"⚠️ Não foi possível persistir chave: {e}")
             else:
-                # Check if we're in production and key is required
-                is_production = os.getenv("ENV", "").lower() == "production"
-                if is_production and private_key_path:
-                    raise SystemExit(
-                        f"🚨 PRODUCTION ERROR: Private key file not found at {private_key_path}. "
-                        "Please ensure PRIVATE_KEY_PATH points to a valid RSA private key file."
-                    )
-
-                # Generate new key pair for development
-                logger.info("🔑 Gerando novo par de chaves RSA (desenvolvimento)")
+                # No PRIVATE_KEY_PATH specified - generate ephemeral key
+                logger.info("🔑 PRIVATE_KEY_PATH não definido - gerando chave efêmera")
                 self.key_pair = RSAKeyPair.generate()
-
-                # Persist the key if path is specified
-                if private_key_path:
-                    self.persist_private_key(
-                        private_key_path, self.key_pair.private_key.get_secret_value()
-                    )
 
             # Generate unique key ID
             import hashlib
