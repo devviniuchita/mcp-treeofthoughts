@@ -42,7 +42,7 @@ jobs:
     - name: Generate RSA key pair for JWT
       run: |
         mkdir -p /tmp/jwt_keys
-        openssl genpkey -algorithm RSA -out /tmp/jwt_keys/private_key.pem -pkeyopt rsa_keygen_bits:2048
+        openssl genpkey -algorithm RSA -out /tmp/jwt_keys/private_key.pem
         chmod 600 /tmp/jwt_keys/private_key.pem
         ls -la /tmp/jwt_keys/private_key.pem
         echo "PRIVATE_KEY_PATH=/tmp/jwt_keys/private_key.pem" >> $GITHUB_ENV
@@ -73,3 +73,4 @@ jobs:
         CI: "true"
       run: |
         python -m pytest src/tests/test_e2e_authentication.py -v --tb=short -s
+
