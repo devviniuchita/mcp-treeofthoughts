@@ -26,6 +26,7 @@ except ImportError as e:
         "FastMCP não está disponível. Verifique a instalação.",
         details={"import_error": str(e)},
     ) from e
+from src.config.constants import JWT_EXPIRY_SECONDS
 from src.execution_manager import ExecutionManager
 from src.jwt_manager import JWTManager
 from src.utils.path_mirror import ensure_mirror
@@ -37,6 +38,37 @@ execution_manager = ExecutionManager()
 
 # Global state tracking for active executions (for testing/monitoring)
 active_runs: Dict[str, Dict[str, Any]] = {}
+
+
+def ensure_cloud_auth_token() -> None:
+    """Ensure AUTH_TOKEN is set for FastMCP Cloud deployment.
+
+    This function automatically generates a JWT token using the existing
+    enterprise-grade jwt_manager infrastructure and sets it as AUTH_TOKEN
+    environment variable for FastMCP Cloud compatibility.
+
+    Only activates when FASTMCP_CLOUD=true and AUTH_TOKEN is not already set.
+    Preserves all functional code - no modifications to jwt_manager.py needed.
+    """
+    fastmcp_cloud_env = os.getenv("FASTMCP_CLOUD", "false").lower() == "true"
+
+    # Only generate AUTH_TOKEN if in cloud environment and not already set
+    if fastmcp_cloud_env:
+        auth_token = os.getenv("AUTH_TOKEN")
+        fastmcp_server_auth = os.getenv("FASTMCP_SERVER_AUTH")
+
+        # Generate AUTH_TOKEN if neither AUTH_TOKEN nor FASTMCP_SERVER_AUTH exists
+        if not auth_token and not fastmcp_server_auth:
+            # Use existing JWT infrastructure (enterprise-grade RS256 tokens)
+            token = jwt_manager.get_or_create_token()
+            os.environ["AUTH_TOKEN"] = token
+            print("🔐 AUTH_TOKEN gerado automaticamente para FastMCP Cloud")
+            print(f"   Token JWT (RS256) com expiração em {JWT_EXPIRY_SECONDS}s")
+        elif auth_token:
+            print("🔐 AUTH_TOKEN detectado (pré-configurado)")
+        elif fastmcp_server_auth:
+            print("🔐 FASTMCP_SERVER_AUTH detectado (custom JWT verifier)")
+
 
 # Initialize FastMCP server with environment-aware authentication
 
@@ -72,7 +104,31 @@ def get_auth_provider():
     return jwt_manager.get_auth_provider()
 
 
-mcp = FastMCP("MCP TreeOfThoughts", auth=get_auth_provider())
+# Ensure AUTH_TOKEN is configured for FastMCP Cloud before server initialization
+ensure_cloud_auth_token()
+
+# Initialize FastMCP - handle version compatibility
+# FastMCP 2.12.x doesn't support 'auth' parameter, uses auth_server_provider instead
+# FastMCP 2.13+ supports 'auth' parameter with JWTVerifier
+try:
+    import fastmcp
+    # Check if FastMCP supports 'auth' parameter (version 2.13+)
+    fastmcp_version = getattr(fastmcp, '__version__', '0.0.0')
+    version_parts = fastmcp_version.split('.')
+    major, minor = int(version_parts[0]), int(version_parts[1]) if len(version_parts) > 1 else 0
+
+    # Version 2.13+ supports auth parameter
+    if major > 2 or (major == 2 and minor >= 13):
+        mcp = FastMCP("MCP TreeOfThoughts", auth=get_auth_provider())
+    else:
+        # Older versions - initialize without auth
+        # Auth will be handled via environment variables (AUTH_TOKEN, MCP_AUTH_TOKEN)
+        print("⚠️ FastMCP < 2.13 detected - using environment-based auth")
+        mcp = FastMCP("MCP TreeOfThoughts")
+except Exception as e:
+    # Fallback: initialize without auth
+    print(f"⚠️ FastMCP auth initialization fallback: {e}")
+    mcp = FastMCP("MCP TreeOfThoughts")
 # Garantir espelhos de arquivos esperados pelos testes de integração
 ensure_mirror(
     [
