@@ -1,0 +1,17 @@
+[project]
+name = "mcp-treeofthoughts"
+version = "0.1.0"
+dependencies = [
+    "fastmcp>=2.12.4",
+    "pytest",
+    "pyjwt",
+    "cryptography",
+    "requests",
+    "pydantic",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["src/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

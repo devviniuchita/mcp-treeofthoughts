@@ -13,8 +13,12 @@ from typing import Optional
 
 import jwt
 
-from fastmcp.server.auth.providers.jwt import JWTVerifier
-from fastmcp.server.auth.providers.jwt import RSAKeyPair
+# Import custom auth providers (compatible with FastMCP 2.12.4)
+from .auth_providers import JWTVerifier
+from .auth_providers import RSAKeyPair
+
+
+print("✅ Using custom auth providers compatible with FastMCP 2.12.4")
 
 from .config.constants import JWT_AUDIENCE
 from .config.constants import JWT_DEFAULT_SCOPES
